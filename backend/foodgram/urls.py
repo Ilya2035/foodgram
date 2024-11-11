@@ -9,15 +9,15 @@ from tags.views import TagViewSet
 from ingredients.views import IngredientViewSet
 from users.views import UserViewSet
 
-router = routers.DefaultRouter()
-router.register(r'recipes', RecipeViewSet, basename='recipes')
-router.register(r'tags', TagViewSet, basename='tags')
-router.register(r'ingredients', IngredientViewSet, basename='ingredients')
-router.register(r'users', UserViewSet, basename='users')
+router_v1 = routers.DefaultRouter()
+router_v1.register(r'recipes', RecipeViewSet, basename='recipes')
+router_v1.register(r'tags', TagViewSet, basename='tags')
+router_v1.register(r'ingredients', IngredientViewSet, basename='ingredients')
+router_v1.register(r'users', UserViewSet, basename='users')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include(router.urls)),
+    path('api/', include(router_v1.urls)),
     path('api/auth/', include('djoser.urls')),
     path('api/auth/', include('djoser.urls.authtoken')),
 ]

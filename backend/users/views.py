@@ -1,59 +1,86 @@
-from rest_framework import viewsets, status, mixins
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
-
-from djoser.views import UserViewSet as DjoserUserViewSet
-
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import (
+    ListView, DetailView, CreateView, UpdateView
+)
+from django.urls import reverse_lazy
 from .models import CustomUser, Subscription
-from .serializers import CustomUserSerializer, SubscriptionSerializer
-from .permissions import IsOwnerOrReadOnly
+from .forms import CustomUserCreationForm, CustomUserChangeForm
+from .mixins import IsOwnerMixin
 
 
-class CustomUserViewSet(DjoserUserViewSet):
-    queryset = CustomUser.objects.all()
-    serializer_class = CustomUserSerializer
+class UserListView(ListView):
+    model = CustomUser
+    template_name = 'users/user_list.html'
+    context_object_name = 'users'
+    paginate_by = 10
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
-    def subscriptions(self, request):
-        user = request.user
-        subscriptions = CustomUser.objects.filter(
-            following__user=user
+
+class UserDetailView(DetailView):
+    model = CustomUser
+    template_name = 'users/user_detail.html'
+    context_object_name = 'user_obj'
+
+
+class UserCreateView(CreateView):
+    model = CustomUser
+    form_class = CustomUserCreationForm
+    template_name = 'users/user_form.html'
+    success_url = reverse_lazy('login')
+
+
+class UserUpdateView(LoginRequiredMixin, IsOwnerMixin, UpdateView):
+    model = CustomUser
+    form_class = CustomUserChangeForm
+    template_name = 'users/user_form.html'
+    success_url = reverse_lazy('user_detail')
+
+
+class SubscriptionListView(LoginRequiredMixin, ListView):
+    model = Subscription
+    template_name = 'users/subscription_list.html'
+    context_object_name = 'subscriptions'
+    paginate_by = 10
+
+    def get_queryset(self):
+        return Subscription.objects.filter(user=self.request.user)
+
+
+class SubscriptionCreateView(LoginRequiredMixin, CreateView):
+    model = Subscription
+    fields = []
+    template_name = 'users/subscription_confirm.html'
+    success_url = reverse_lazy('subscription_list')
+
+    def form_valid(self, form):
+        author = get_object_or_404(CustomUser, pk=self.kwargs['pk'])
+        if self.request.user == author:
+            form.add_error(None, 'Нельзя подписаться на самого себя.')
+            return self.form_invalid(form)
+        subscription, created = Subscription.objects.get_or_create(
+            user=self.request.user,
+            author=author
         )
-        page = self.paginate_queryset(subscriptions)
-        if page is not None:
-            serializer = SubscriptionSerializer(page, many=True, context={'request': request})
-            return self.get_paginated_response(serializer.data)
-        serializer = SubscriptionSerializer(subscriptions, many=True, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        if not created:
+            form.add_error(None, 'Вы уже подписаны на этого пользователя.')
+            return self.form_invalid(form)
+        return super().form_valid(form)
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
-    def subscribe(self, request, id=None):
-        user = request.user
-        author = self.get_object()
-        serializer = SubscriptionSerializer(
-            author,
-            context={'request': request},
+
+class SubscriptionDeleteView(LoginRequiredMixin, CreateView):
+    model = Subscription
+    fields = []
+    template_name = 'users/subscription_confirm_delete.html'
+    success_url = reverse_lazy('subscription_list')
+
+    def post(self, request, *args, **kwargs):
+        author = get_object_or_404(CustomUser, pk=self.kwargs['pk'])
+        subscription = Subscription.objects.filter(
+            user=self.request.user,
+            author=author
         )
-        return self.perform_subscribe_action(user, author, serializer)
-
-    @subscribe.mapping.delete
-    def unsubscribe(self, request, id=None):
-        user = request.user
-        author = self.get_object()
-        return self.perform_unsubscribe_action(user, author)
-
-    def perform_subscribe_action(self, user, author, serializer):
-        if user == author:
-            return Response({'errors': 'Нельзя подписаться на самого себя.'}, status=status.HTTP_400_BAD_REQUEST)
-        if Subscription.objects.filter(user=user, author=author).exists():
-            return Response({'errors': 'Вы уже подписаны на этого пользователя.'}, status=status.HTTP_400_BAD_REQUEST)
-        Subscription.objects.create(user=user, author=author)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    def perform_unsubscribe_action(self, user, author):
-        subscription = Subscription.objects.filter(user=user, author=author)
         if subscription.exists():
             subscription.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response({'errors': 'Вы не подписаны на этого пользователя.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return self.handle_no_permission()
+        return super().post(request, *args, **kwargs)
