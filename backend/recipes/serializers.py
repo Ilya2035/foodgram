@@ -1,8 +1,10 @@
 from rest_framework import serializers
-from drf_extra_fields.fields import Base64ImageField  # Установите drf-extra-fields
+from drf_extra_fields.fields import Base64ImageField
 
-from .models import Recipe, Ingredient, Tag, RecipeIngredient, Favorite, ShoppingCart
+from .models import Recipe, Ingredient, Tag, RecipeIngredient
 from users.serializers import CustomUserSerializer
+from favorites.models import Favorite
+from list.models import ShoppingList
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -87,3 +89,13 @@ class RecipeSerializer(serializers.ModelSerializer):
         self.create_ingredients(ingredients_data, instance)
         instance.tags.set(tags_data)
         return super().update(instance, validated_data)
+
+
+class RecipeShortSerializer(serializers.ModelSerializer):
+    """Краткий сериализатор для модели Recipe."""
+
+    image = Base64ImageField()
+
+    class Meta:
+        model = Recipe
+        fields = ('id', 'name', 'image', 'cooking_time')

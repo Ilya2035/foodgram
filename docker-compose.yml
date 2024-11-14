@@ -1,0 +1,44 @@
+version: '3'
+
+volumes:
+  pg_data:
+  staticfiles:
+
+services:
+  db:
+    image: postgres:13
+    env_file: .env
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    restart: always
+
+  backend:
+    build: ./backend/
+    env_file: .env
+    volumes:
+      - staticfiles:/backend_static
+    depends_on:
+      - db
+    restart: always
+
+  frontend:
+    build: ./frontend/
+    env_file: .env
+    volumes:
+      - staticfiles:/frontend_static
+    command: cp -r result_build/. /frontend_static/
+    depends_on:
+      - backend
+    restart: always
+
+  gateway:
+    build: ./gateway/
+    env_file: .env
+    volumes:
+      - staticfiles:/staticfiles
+    ports:
+      - "8000:80"
+    depends_on:
+      - frontend
+      - backend
+    restart: always
