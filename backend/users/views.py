@@ -4,7 +4,8 @@ from django.views.generic import (
     ListView, DetailView, CreateView, UpdateView
 )
 from django.urls import reverse_lazy
-from .models import CustomUser, Subscription
+from .models import CustomUser
+from subscriptions.models import Subscription
 from .forms import CustomUserCreationForm, CustomUserChangeForm
 from .mixins import IsOwnerMixin
 

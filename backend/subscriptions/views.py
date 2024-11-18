@@ -7,6 +7,7 @@ from .models import Subscription
 from .serializers import SubscriptionSerializer
 from users.models import CustomUser
 
+
 class SubscriptionViewSet(viewsets.GenericViewSet):
     permission_classes = (IsAuthenticated,)
     serializer_class = SubscriptionSerializer
