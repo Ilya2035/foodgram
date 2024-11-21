@@ -11,27 +11,22 @@ services:
       - pg_data:/var/lib/postgresql/data
 
   backend:
-    build:
-      context: ./backend
+    build: ./backend/
     env_file: .env
     volumes:
-      - static:/app/static
-      - media:/app/media
-    depends_on:
-      - db
-    command: >
-      sh -c "
-      python manage.py migrate &&
-      gunicorn foodgram.wsgi:application --bind 0.0.0.0:8000"
+      - static:/backend_static
+      - media:/backend_media
 
   frontend:
-    build: ./frontend
     env_file: .env
+    build: ./frontend/
+    command: cp -r /app/build/. /frontend_static/
     volumes:
       - static:/frontend_static
 
   nginx:
-    build: ./nginx
+    build: ./nginx/
+    env_file: .env
     volumes:
       - static:/staticfiles
       - media:/mediafiles
