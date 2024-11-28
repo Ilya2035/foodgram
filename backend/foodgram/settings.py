@@ -23,16 +23,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'rest_framework.authtoken',
-    'django_filters',
-    'djoser',
-    'colorfield',
-    'favorites',
-    'ingredients',
-    'list',
-    'recipes',
-    'subscriptions',
-    'tags',
     'users',
 ]
 
@@ -75,15 +65,6 @@ DATABASES = {
         'HOST': os.getenv('DB_HOST', 'db'),
         'PORT': os.getenv('DB_PORT', '5432'),
     }
-}
-
-REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
-    'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
-    ),
 }
 
 DJOSER = {

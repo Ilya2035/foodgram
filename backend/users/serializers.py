@@ -1,29 +1,13 @@
-from djoser.serializers import UserCreateSerializer, UserSerializer
+from django.contrib.auth.models import User
 from rest_framework import serializers
-from .models import CustomUser
 
 
-class CustomUserCreateSerializer(UserCreateSerializer):
-    class Meta(UserCreateSerializer.Meta):
-        model = CustomUser
-        fields = (
-            'id', 'email', 'username', 'first_name', 'last_name', 'password'
-        )
-        extra_kwargs = {'password': {'write_only': True}}
+class UserCreateSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True)
 
+    class Meta:
+        model = User
+        fields = ['username', 'password', 'first_name', 'last_name', 'email']
 
-class CustomUserSerializer(UserSerializer):
-    is_subscribed = serializers.SerializerMethodField()
-
-    class Meta(UserSerializer.Meta):
-        model = CustomUser
-        fields = (
-            'id', 'email', 'username',
-            'first_name', 'last_name', 'is_subscribed'
-        )
-
-    def get_is_subscribed(self, obj):
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            return obj.following.filter(user=request.user).exists()
-        return False
+    def create(self, validated_data):
+        return User.objects.create_user(**validated_data)
