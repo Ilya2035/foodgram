@@ -106,7 +106,7 @@ class UpdateAvatarView(APIView):
 
     def put(self, request):
         user = request.user
-        profile, created = Profile.objects.get_or_create(user=user)  # Создаем профиль, если его нет
+        profile, created = Profile.objects.get_or_create(user=user)
         serializer = AvatarSerializer(instance=profile, data=request.data)
         if serializer.is_valid():
             serializer.save()
