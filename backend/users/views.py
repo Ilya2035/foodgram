@@ -10,8 +10,10 @@ from .serializers import (
     UserCreateSerializer,
     EmailAuthTokenSerializer,
     CustomUserSerializer,
-    UserListSerializer
+    UserListSerializer,
+    AvatarSerializer
 )
+from .models import Profile
 
 
 class RegisterView(APIView):
@@ -41,7 +43,7 @@ class CurrentUserView(APIView):
 
     def get(self, request):
         user = request.user
-        serializer = CustomUserSerializer(user)
+        serializer = CustomUserSerializer(user, context={'request': request})
         return Response(serializer.data)
 
 
@@ -97,3 +99,31 @@ class UserDetailView(RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserListSerializer
     permission_classes = [permissions.AllowAny]
+
+
+class UpdateAvatarView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def put(self, request):
+        user = request.user
+        profile, created = Profile.objects.get_or_create(user=user)  # Создаем профиль, если его нет
+        serializer = AvatarSerializer(instance=profile, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            avatar_url = request.build_absolute_uri(profile.avatar.url)
+            return Response({'avatar': avatar_url}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request):
+        user = request.user
+        try:
+            profile = Profile.objects.get(user=user)
+            if profile.avatar:
+                # Удаляем файл аватара
+                profile.avatar.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Profile.DoesNotExist:
+            return Response(
+                {"detail": "Профиль не найден."},
+                status=status.HTTP_404_NOT_FOUND
+            )
