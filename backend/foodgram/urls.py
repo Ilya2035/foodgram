@@ -5,6 +5,7 @@ from django.conf import settings
 
 urlpatterns = [
     path('', include('users.urls')),
+    path('', include('tags.urls')),
 ]
 
 if settings.DEBUG:
