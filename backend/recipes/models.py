@@ -27,3 +27,11 @@ class RecipeIngredient(models.Model):
 
     def __str__(self):
         return f"{self.ingredient.name} для {self.recipe.name}"
+
+
+class ShoppingCart(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='shopping_cart')
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name='in_shopping_cart')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.recipe.name}"
