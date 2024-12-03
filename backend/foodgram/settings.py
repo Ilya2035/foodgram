@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'tags',
     'ingredients',
     'djoser',
+    'recipes',
 ]
 
 MIDDLEWARE = [
