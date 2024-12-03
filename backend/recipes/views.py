@@ -7,7 +7,7 @@ from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 
 from .models import Recipe, ShoppingCart
-from .serializers import RecipeSerializer
+from .serializers import RecipeSerializer, RecipeSimpleSerializer
 
 
 class RecipeListCreateView(APIView):
@@ -78,3 +78,35 @@ class DownloadShoppingCartView(APIView):
         response[
             'Content-Disposition'] = 'attachment; filename="shopping_cart.txt"'
         return response
+
+
+class ShoppingCartView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, id):
+        """Добавление рецепта в список покупок."""
+        try:
+            recipe = Recipe.objects.get(id=id)
+        except Recipe.DoesNotExist:
+            return Response({"detail": "Рецепт не найден."}, status=status.HTTP_404_NOT_FOUND)
+
+        if ShoppingCart.objects.filter(user=request.user, recipe=recipe).exists():
+            return Response({"detail": "Рецепт уже в списке покупок."}, status=status.HTTP_400_BAD_REQUEST)
+
+        ShoppingCart.objects.create(user=request.user, recipe=recipe)
+        serializer = RecipeSimpleSerializer(recipe)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, id):
+        """Удаление рецепта из списка покупок."""
+        try:
+            recipe = Recipe.objects.get(id=id)
+        except Recipe.DoesNotExist:
+            return Response({"detail": "Рецепт не найден."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            shopping_cart_item = ShoppingCart.objects.get(user=request.user, recipe=recipe)
+            shopping_cart_item.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except ShoppingCart.DoesNotExist:
+            return Response({"detail": "Рецепта нет в списке покупок."}, status=status.HTTP_400_BAD_REQUEST)

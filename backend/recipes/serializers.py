@@ -51,3 +51,9 @@ class RecipeSerializer(serializers.ModelSerializer):
             instance.tags.set(tags_data)
         instance.save()
         return instance
+
+
+class RecipeSimpleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Recipe
+        fields = ['id', 'name', 'image', 'cooking_time']
