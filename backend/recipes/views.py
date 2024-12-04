@@ -6,7 +6,7 @@ from rest_framework.generics import RetrieveUpdateDestroyAPIView
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 
-from .models import Recipe, ShoppingCart
+from .models import Recipe, ShoppingCart, Favorite
 from .serializers import RecipeSerializer, RecipeSimpleSerializer
 
 
@@ -110,3 +110,35 @@ class ShoppingCartView(APIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except ShoppingCart.DoesNotExist:
             return Response({"detail": "Рецепта нет в списке покупок."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FavoriteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, id):
+        """Добавление рецепта в избранное."""
+        try:
+            recipe = Recipe.objects.get(id=id)
+        except Recipe.DoesNotExist:
+            return Response({"detail": "Рецепт не найден."}, status=status.HTTP_404_NOT_FOUND)
+
+        if Favorite.objects.filter(user=request.user, recipe=recipe).exists():
+            return Response({"detail": "Рецепт уже в избранном."}, status=status.HTTP_400_BAD_REQUEST)
+
+        Favorite.objects.create(user=request.user, recipe=recipe)
+        serializer = RecipeSimpleSerializer(recipe)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, id):
+        """Удаление рецепта из избранного."""
+        try:
+            recipe = Recipe.objects.get(id=id)
+        except Recipe.DoesNotExist:
+            return Response({"detail": "Рецепт не найден."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            favorite = Favorite.objects.get(user=request.user, recipe=recipe)
+            favorite.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Favorite.DoesNotExist:
+            return Response({"detail": "Рецепт отсутствует в избранном."}, status=status.HTTP_400_BAD_REQUEST)
