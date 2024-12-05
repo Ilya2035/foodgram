@@ -8,9 +8,11 @@ class TagListView(ListAPIView):
     permission_classes = [permissions.AllowAny]
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
+    pagination_class = None
 
 
 class TagDetailView(RetrieveAPIView):
     permission_classes = [permissions.AllowAny]
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
+    pagination_class = None

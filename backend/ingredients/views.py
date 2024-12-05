@@ -14,6 +14,7 @@ class IngredientListView(ListAPIView):
     filter_backends = []
     search_fields = []
     search_param = 'name'
+    pagination_class = None
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -29,3 +30,4 @@ class IngredientDetailView(RetrieveAPIView):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
     permission_classes = [permissions.AllowAny]
+    pagination_class = None
