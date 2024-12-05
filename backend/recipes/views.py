@@ -1,8 +1,12 @@
 from django.http import HttpResponse
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
-from rest_framework.generics import RetrieveUpdateDestroyAPIView
+from rest_framework.generics import (
+    RetrieveUpdateDestroyAPIView,
+    ListCreateAPIView
+)
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 
@@ -10,20 +14,14 @@ from .models import Recipe, ShoppingCart, Favorite
 from .serializers import RecipeSerializer, RecipeSimpleSerializer
 
 
-class RecipeListCreateView(APIView):
-    permission_classes = [permissions.AllowAny]
+class RecipeListCreateView(ListCreateAPIView):
+    queryset = Recipe.objects.all()
+    serializer_class = RecipeSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
 
-    def get(self, request):
-        recipes = Recipe.objects.all()
-        serializer = RecipeSerializer(recipes, many=True, context={'request': request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, request):
-        serializer = RecipeSerializer(data=request.data, context={'request': request})
-        if serializer.is_valid():
-            serializer.save(author=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
 
 
 class RecipeDetailView(RetrieveUpdateDestroyAPIView):
