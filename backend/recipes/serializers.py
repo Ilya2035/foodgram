@@ -2,10 +2,17 @@ from rest_framework import serializers
 
 from .models import Recipe, RecipeIngredient
 from .fields import Base64ImageField
+from ingredients.models import Ingredient
+from tags.models import Tag
 
 
-class RecipeIngredientSerializer(serializers.ModelSerializer):
-    id = serializers.ReadOnlyField(source='ingredient.id')
+class IngredientInRecipeSerializer(serializers.ModelSerializer):
+    # При записи: ожидает id ингредиента.
+    # При чтении: возвращает полные данные ингредиента.
+    id = serializers.PrimaryKeyRelatedField(
+        source='ingredient',
+        queryset=Ingredient.objects.all()
+    )
     name = serializers.ReadOnlyField(source='ingredient.name')
     measurement_unit = serializers.ReadOnlyField(source='ingredient.measurement_unit')
 
@@ -15,43 +22,40 @@ class RecipeIngredientSerializer(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    ingredients = serializers.SerializerMethodField()
+    ingredients = IngredientInRecipeSerializer(source='recipe_ingredients', many=True)
     image = Base64ImageField()
+    tags = serializers.PrimaryKeyRelatedField(queryset=Tag.objects.all(), many=True)
 
     class Meta:
         model = Recipe
         fields = ['id', 'name', 'text', 'cooking_time', 'image', 'tags', 'ingredients']
 
-    def get_ingredients(self, obj):
-        recipe_ingredients = obj.recipe_ingredients.all()
-        return RecipeIngredientSerializer(recipe_ingredients, many=True).data
-
     def create(self, validated_data):
-        ingredients_data = validated_data.pop('ingredients')
+        ingredients_data = validated_data.pop('recipe_ingredients')
         tags_data = validated_data.pop('tags')
         recipe = Recipe.objects.create(**validated_data)
+        recipe.tags.set(tags_data)
         for ingredient_data in ingredients_data:
             RecipeIngredient.objects.create(
                 recipe=recipe,
-                ingredient=ingredient_data['id'],
+                ingredient=ingredient_data['ingredient'],
                 amount=ingredient_data['amount']
             )
-        recipe.tags.set(tags_data)
         return recipe
 
     def update(self, instance, validated_data):
-        ingredients_data = validated_data.pop('ingredients', None)
+        ingredients_data = validated_data.pop('recipe_ingredients', None)
         tags_data = validated_data.pop('tags', None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
         if ingredients_data is not None:
-            instance.ingredient_links.all().delete()
+            instance.recipe_ingredients.all().delete()
             for ingredient_data in ingredients_data:
                 RecipeIngredient.objects.create(
                     recipe=instance,
-                    ingredient=ingredient_data['id'],
+                    ingredient=ingredient_data['ingredient'],
                     amount=ingredient_data['amount']
                 )
 
