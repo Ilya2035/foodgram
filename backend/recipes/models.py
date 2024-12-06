@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+
 from tags.models import Tag
 from ingredients.models import Ingredient
 
@@ -18,8 +19,8 @@ class Recipe(models.Model):
 
 
 class RecipeIngredient(models.Model):
-    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name='ingredient_links')
-    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE, related_name='recipe_links')
+    recipe = models.ForeignKey(Recipe, on_delete=models.CASCADE, related_name='recipe_ingredients')
+    ingredient = models.ForeignKey(Ingredient, on_delete=models.CASCADE)
     amount = models.PositiveIntegerField()
 
     class Meta:
