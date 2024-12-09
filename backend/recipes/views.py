@@ -2,7 +2,7 @@ from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, permissions
+from rest_framework import status, permissions, filters
 from rest_framework.generics import (
     RetrieveUpdateDestroyAPIView,
     ListCreateAPIView
@@ -10,6 +10,7 @@ from rest_framework.generics import (
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 
+from .filters import RecipeFilter
 from .models import Recipe, ShoppingCart, Favorite
 from .serializers import RecipeSerializer, RecipeSimpleSerializer
 
@@ -18,7 +19,14 @@ class RecipeListCreateView(ListCreateAPIView):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_class = RecipeFilter
+    search_fields = ['name', 'text']
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -28,6 +36,11 @@ class RecipeDetailView(RetrieveUpdateDestroyAPIView):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
     def patch(self, request, *args, **kwargs):
         recipe = self.get_object()
