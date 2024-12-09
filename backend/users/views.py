@@ -1,112 +1,53 @@
 from rest_framework.views import APIView
-from rest_framework import status, permissions
-from rest_framework.authtoken.views import ObtainAuthToken
+from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
+from rest_framework import status, permissions, generics
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
-from rest_framework.generics import ListAPIView, RetrieveAPIView
+from rest_framework.authtoken.views import ObtainAuthToken
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
 
 from .serializers import (
     UserCreateSerializer,
-    EmailAuthTokenSerializer,
-    CustomUserSerializer,
-    UserListSerializer,
+    UserListRetrieveSerializer,
+    SetPasswordSerializer,
     AvatarSerializer
 )
 from .models import Profile
 
 
-class RegisterView(APIView):
+class UserListView(ListCreateAPIView):
+    queryset = User.objects.all()
     permission_classes = [permissions.AllowAny]
+    pagination_class = None  # По необходимости подключите пагинацию
 
-    def post(self, request):
-        serializer = UserCreateSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return UserCreateSerializer
+        return UserListRetrieveSerializer
 
 
-class LoginView(ObtainAuthToken):
-    serializer_class = EmailAuthTokenSerializer
-
-    def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data['user']
-        token, created = Token.objects.get_or_create(user=user)
-        return Response({'auth_token': token.key})
+class UserDetailView(RetrieveAPIView):
+    queryset = User.objects.all()
+    permission_classes = [permissions.AllowAny]
+    serializer_class = UserListRetrieveSerializer
+    lookup_field = 'id'
 
 
 class CurrentUserView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        user = request.user
-        serializer = CustomUserSerializer(user, context={'request': request})
+        serializer = UserListRetrieveSerializer(request.user, context={'request': request})
         return Response(serializer.data)
 
-
-class LogoutView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
-        # Удаляем токен текущего пользователя
-        try:
-            token = Token.objects.get(user=request.user)
-            token.delete()
-        except Token.DoesNotExist:
-            pass
-        return Response(status=204)
-
-
-class ChangePasswordView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request):
-        current_password = request.data.get("current_password")
-        new_password = request.data.get("new_password")
-
-        if not current_password or not new_password:
-            return Response(
-                {"detail": "Оба поля 'current_password' и 'new_password' обязательны."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        user = request.user
-
-        # Проверяем текущий пароль
-        if not user.check_password(current_password):
-            return Response(
-                {"current_password": ["Неверный текущий пароль."]},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Устанавливаем новый пароль
-        user.set_password(new_password)
-        user.save()
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class UserListView(ListAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserListSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-
-class UserDetailView(RetrieveAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserListSerializer
-    permission_classes = [permissions.AllowAny]
 
 
 class UpdateAvatarView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def put(self, request):
-        user = request.user
-        profile, created = Profile.objects.get_or_create(user=user)
+        profile, created = Profile.objects.get_or_create(user=request.user)
         serializer = AvatarSerializer(instance=profile, data=request.data)
         if serializer.is_valid():
             serializer.save()
@@ -115,15 +56,64 @@ class UpdateAvatarView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
-        user = request.user
         try:
-            profile = Profile.objects.get(user=user)
+            profile = request.user.profile
             if profile.avatar:
-                # Удаляем файл аватара
                 profile.avatar.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(status=204)
         except Profile.DoesNotExist:
-            return Response(
-                {"detail": "Профиль не найден."},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"detail": "Профиль не найден."}, status=404)
+
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = SetPasswordSerializer(data=request.data)
+        if serializer.is_valid():
+            current_password = serializer.validated_data['current_password']
+            new_password = serializer.validated_data['new_password']
+            user = request.user
+            if not user.check_password(current_password):
+                return Response({"current_password": ["Неверный текущий пароль."]}, status=400)
+            user.set_password(new_password)
+            user.save()
+            return Response(status=204)
+        return Response(serializer.errors, status=400)
+
+
+
+class LoginView(ObtainAuthToken):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, *args, **kwargs):
+        email = request.data.get('email')
+        password = request.data.get('password')
+        if email is None or password is None:
+            return Response({"detail": "Необходимы email и password."}, status=400)
+        user = authenticate(username=email, password=password)
+        if not user:
+            # Если authenticate не прошёл, возможно email не совпадает с username.
+            # Если вы используете email как username в authenticate,
+            # убедитесь, что соответствие настроено.
+            # Либо используйте user = User.objects.filter(email=email).first() и user.check_password.
+            user = User.objects.filter(email=email).first()
+            if not user or not user.check_password(password):
+                return Response({"detail": "Неверные учетные данные."}, status=400)
+
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({'auth_token': token.key})
+
+
+
+class LogoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        try:
+            token = Token.objects.get(user=request.user)
+            token.delete()
+        except Token.DoesNotExist:
+            pass
+        return Response(status=204)

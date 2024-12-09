@@ -2,11 +2,9 @@ import base64
 import uuid
 import imghdr
 
-from django.contrib.auth.models import User
-from rest_framework import serializers
-from django.contrib.auth import authenticate
 from django.core.files.base import ContentFile
-
+from rest_framework import serializers
+from django.contrib.auth.models import User
 from .models import Profile
 
 
@@ -15,37 +13,23 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'password', 'first_name', 'last_name', 'email']
+        fields = ['email', 'username', 'first_name', 'last_name', 'password']
 
     def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+        user = User.objects.create(
+            email=validated_data['email'],
+            username=validated_data['username'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', '')
+        )
+        user.set_password(validated_data['password'])
+        user.save()
+        # При необходимости создать профиль
+        Profile.objects.get_or_create(user=user)
+        return user
 
 
-class EmailAuthTokenSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
-
-    def validate(self, attrs):
-        email = attrs.get('email')
-        password = attrs.get('password')
-
-        if not email or not password:
-            raise serializers.ValidationError("Email and password are required.")
-
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            raise serializers.ValidationError("Invalid email or password.")
-
-        user = authenticate(username=user.username, password=password)
-        if not user:
-            raise serializers.ValidationError("Invalid email or password.")
-
-        attrs['user'] = user
-        return attrs
-
-
-class CustomUserSerializer(serializers.ModelSerializer):
+class UserListRetrieveSerializer(serializers.ModelSerializer):
     is_subscribed = serializers.SerializerMethodField()
     avatar = serializers.SerializerMethodField()
 
@@ -54,32 +38,19 @@ class CustomUserSerializer(serializers.ModelSerializer):
         fields = ['email', 'id', 'username', 'first_name', 'last_name', 'is_subscribed', 'avatar']
 
     def get_is_subscribed(self, obj):
-        # Если подписки реализованы, замените логику
+        # Логику подписок реализуйте сами, пока False
         return False
 
     def get_avatar(self, obj):
-        request = self.context.get('request')
         if hasattr(obj, 'profile') and obj.profile.avatar:
-            avatar_url = obj.profile.avatar.url
-            return request.build_absolute_uri(avatar_url) if request else avatar_url
+            request = self.context.get('request')
+            return request.build_absolute_uri(obj.profile.avatar.url)
         return None
 
 
-class UserListSerializer(serializers.ModelSerializer):
-    is_subscribed = serializers.SerializerMethodField()
-    avatar = serializers.SerializerMethodField()
-
-    class Meta:
-        model = User
-        fields = ['email', 'id', 'username', 'first_name', 'last_name', 'is_subscribed', 'avatar']
-
-    def get_is_subscribed(self, obj):
-        # Логика для подписки (если нужно). Пока возвращаем False
-        return False
-
-    def get_avatar(self, obj):
-        # Добавьте логику для аватара (по умолчанию возвращается заглушка)
-        return "http://foodgram.example.org/media/users/default_avatar.png"
+class SetPasswordSerializer(serializers.Serializer):
+    new_password = serializers.CharField()
+    current_password = serializers.CharField()
 
 
 class Base64ImageField(serializers.ImageField):
