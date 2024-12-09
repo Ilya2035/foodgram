@@ -57,6 +57,8 @@ class RecipeDetailView(RetrieveUpdateDestroyAPIView):
 
 
 class RecipeLinkView(APIView):
+    permission_classes = [permissions.AllowAny]
+
     def get(self, request, id):
         recipe = get_object_or_404(Recipe, id=id)
         # Генерация короткой ссылки (пример, замените на реальную логику)
@@ -68,26 +70,27 @@ class DownloadShoppingCartView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        # Получение списка покупок текущего пользователя
         user = request.user
-        shopping_cart = ShoppingCart.objects.filter(user=user)
+        shopping_cart = ShoppingCart.objects.filter(user=user).select_related('recipe').prefetch_related('recipe__recipe_ingredients__ingredient')
 
         if not shopping_cart.exists():
-            return Response({"detail": "Список покупок пуст."}, status=400)
+            return Response({"detail": "Список покупок пуст."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Формирование контента файла
         content = "Список покупок:\n\n"
         for item in shopping_cart:
             recipe = item.recipe
             content += f"{recipe.name}:\n"
-            for ingredient in recipe.ingredients.all():
-                content += f" - {ingredient.name} ({ingredient.measurement_unit}): {ingredient.amount}\n"
+            # Используем промежуточную модель RecipeIngredient для получения количества
+            for recipe_ingredient in recipe.recipe_ingredients.all():
+                ingredient = recipe_ingredient.ingredient
+                amount = recipe_ingredient.amount
+                content += f" - {ingredient.name} ({ingredient.measurement_unit}): {amount}\n"
             content += "\n"
 
         # Создание HTTP-ответа с файлом
         response = HttpResponse(content, content_type='text/plain')
-        response[
-            'Content-Disposition'] = 'attachment; filename="shopping_cart.txt"'
+        response['Content-Disposition'] = 'attachment; filename="shopping_cart.txt"'
         return response
 
 
