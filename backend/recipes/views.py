@@ -1,3 +1,4 @@
+from django.db.models import Exists, OuterRef
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.views import APIView
@@ -23,13 +24,21 @@ class RecipeListCreateView(ListCreateAPIView):
     filterset_class = RecipeFilter
     search_fields = ['name', 'text']
 
-    def get_serializer_context(self):
-        context = super().get_serializer_context()
-        context['request'] = self.request
-        return context
+    def get_queryset(self):
+        """Фильтрация рецептов по параметру is_favorited."""
+        queryset = Recipe.objects.all()
+        user = self.request.user
 
-    def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        # Фильтрация по избранному
+        is_favorited = self.request.query_params.get('is_favorited')
+        if is_favorited == '1' and user.is_authenticated:
+            queryset = queryset.filter(
+                Exists(
+                    Favorite.objects.filter(user=user, recipe=OuterRef('id'))
+                )
+            )
+
+        return queryset
 
 
 class RecipeDetailView(RetrieveUpdateDestroyAPIView):
@@ -131,28 +140,26 @@ class FavoriteView(APIView):
 
     def post(self, request, id):
         """Добавление рецепта в избранное."""
-        try:
-            recipe = Recipe.objects.get(id=id)
-        except Recipe.DoesNotExist:
-            return Response({"detail": "Рецепт не найден."}, status=status.HTTP_404_NOT_FOUND)
+        recipe = get_object_or_404(Recipe, id=id)
 
+        # Проверка: рецепт уже в избранном
         if Favorite.objects.filter(user=request.user, recipe=recipe).exists():
             return Response({"detail": "Рецепт уже в избранном."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Добавление в избранное
         Favorite.objects.create(user=request.user, recipe=recipe)
         serializer = RecipeSimpleSerializer(recipe)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, id):
         """Удаление рецепта из избранного."""
-        try:
-            recipe = Recipe.objects.get(id=id)
-        except Recipe.DoesNotExist:
-            return Response({"detail": "Рецепт не найден."}, status=status.HTTP_404_NOT_FOUND)
+        recipe = get_object_or_404(Recipe, id=id)
 
-        try:
-            favorite = Favorite.objects.get(user=request.user, recipe=recipe)
-            favorite.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Favorite.DoesNotExist:
+        # Проверка: рецепт отсутствует в избранном
+        favorite = Favorite.objects.filter(user=request.user, recipe=recipe).first()
+        if not favorite:
             return Response({"detail": "Рецепт отсутствует в избранном."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Удаление из избранного
+        favorite.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
