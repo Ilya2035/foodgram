@@ -40,6 +40,9 @@ class RecipeListCreateView(ListCreateAPIView):
 
         return queryset
 
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
 
 class RecipeDetailView(RetrieveUpdateDestroyAPIView):
     queryset = Recipe.objects.all()

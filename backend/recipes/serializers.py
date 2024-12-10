@@ -5,10 +5,12 @@ from ingredients.models import Ingredient
 from tags.models import Tag
 from .fields import Base64ImageField
 
+
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = ['id', 'name', 'slug']
+
 
 class IngredientInRecipeSerializer(serializers.ModelSerializer):
     # При чтении: возвращаем полные данные об ингредиенте
@@ -23,6 +25,7 @@ class IngredientInRecipeSerializer(serializers.ModelSerializer):
     class Meta:
         model = RecipeIngredient
         fields = ['id', 'name', 'measurement_unit', 'amount']
+
 
 class RecipeSerializer(serializers.ModelSerializer):
     ingredients = IngredientInRecipeSerializer(source='recipe_ingredients', many=True)

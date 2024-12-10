@@ -5,7 +5,9 @@ import imghdr
 from django.core.files.base import ContentFile
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Profile
+
+from .models import Profile, Subscription
+from recipes.models import Recipe
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -42,8 +44,8 @@ class UserListRetrieveSerializer(serializers.ModelSerializer):
         return False
 
     def get_avatar(self, obj):
+        request = self.context.get('request')
         if hasattr(obj, 'profile') and obj.profile.avatar:
-            request = self.context.get('request')
             return request.build_absolute_uri(obj.profile.avatar.url)
         return None
 
@@ -79,3 +81,46 @@ class AvatarSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = ['avatar']
+
+
+class RecipeMinifiedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Recipe
+        fields = ['id', 'name', 'image', 'cooking_time']
+
+
+class UserWithRecipesSerializer(serializers.ModelSerializer):
+    is_subscribed = serializers.SerializerMethodField()
+    recipes = serializers.SerializerMethodField()
+    recipes_count = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'username', 'first_name', 'last_name',
+            'is_subscribed', 'recipes', 'recipes_count', 'avatar'
+        ]
+
+    def get_is_subscribed(self, obj):
+        user = self.context['request'].user
+        if user.is_authenticated:
+            return Subscription.objects.filter(user=user, author=obj).exists()
+        return False
+
+    def get_recipes(self, obj):
+        request = self.context.get('request')
+        recipes_limit = request.query_params.get('recipes_limit')
+        recipes = Recipe.objects.filter(author=obj)
+        if recipes_limit:
+            recipes = recipes[:int(recipes_limit)]
+        return RecipeMinifiedSerializer(recipes, many=True).data
+
+    def get_recipes_count(self, obj):
+        return Recipe.objects.filter(author=obj).count()
+
+    def get_avatar(self, obj):
+        request = self.context.get('request')
+        if hasattr(obj, 'profile') and obj.profile.avatar:
+            return request.build_absolute_uri(obj.profile.avatar.url)
+        return None

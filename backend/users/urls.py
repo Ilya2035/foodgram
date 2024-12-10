@@ -7,6 +7,8 @@ from .views import (
     UserListView,
     UserDetailView,
     UpdateAvatarView,
+    SubscriptionsView,
+    SubscribeView
 )
 
 urlpatterns = [
@@ -17,4 +19,6 @@ urlpatterns = [
     path('api/users/me/', CurrentUserView.as_view(), name='current-user'),
     path('api/users/me/avatar/', UpdateAvatarView.as_view(), name='update-avatar'),
     path('api/users/set_password/', ChangePasswordView.as_view(), name='set-password'),
+    path('api/users/subscriptions/', SubscriptionsView.as_view(), name='subscriptions'),
+    path('api/users/<int:id>/subscribe/', SubscribeView.as_view(), name='subscribe'),
 ]
