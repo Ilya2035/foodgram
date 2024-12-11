@@ -19,12 +19,13 @@ from .serializers import (
     UserWithRecipesSerializer
 )
 from .models import Profile, Subscription
+from .pagination import PaginationforUser
 
 
 class UserListView(ListCreateAPIView):
     queryset = User.objects.all()
     permission_classes = [permissions.AllowAny]
-    pagination_class = None  # По необходимости подключите пагинацию
+    pagination_class = PaginationforUser
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -96,10 +97,6 @@ class LoginView(ObtainAuthToken):
             return Response({"detail": "Необходимы email и password."}, status=400)
         user = authenticate(username=email, password=password)
         if not user:
-            # Если authenticate не прошёл, возможно email не совпадает с username.
-            # Если вы используете email как username в authenticate,
-            # убедитесь, что соответствие настроено.
-            # Либо используйте user = User.objects.filter(email=email).first() и user.check_password.
             user = User.objects.filter(email=email).first()
             if not user or not user.check_password(password):
                 return Response({"detail": "Неверные учетные данные."}, status=400)

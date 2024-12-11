@@ -14,12 +14,14 @@ from django.shortcuts import get_object_or_404
 from .filters import RecipeFilter
 from .models import Recipe, ShoppingCart, Favorite
 from .serializers import RecipeSerializer, RecipeSimpleSerializer
+from .pagination import PaginationforUser
 
 
 class RecipeListCreateView(ListCreateAPIView):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    pagination_class = PaginationforUser
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_class = RecipeFilter
     search_fields = ['name', 'text']

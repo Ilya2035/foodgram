@@ -13,8 +13,6 @@ class TagSerializer(serializers.ModelSerializer):
 
 
 class IngredientInRecipeSerializer(serializers.ModelSerializer):
-    # При чтении: возвращаем полные данные об ингредиенте
-    # При записи: ожидаем {id: <ingredient_id>, amount: <int>}
     id = serializers.PrimaryKeyRelatedField(
         source='ingredient',
         queryset=Ingredient.objects.all()
@@ -28,9 +26,8 @@ class IngredientInRecipeSerializer(serializers.ModelSerializer):
 
 
 class RecipeSerializer(serializers.ModelSerializer):
-    ingredients = IngredientInRecipeSerializer(source='recipe_ingredients', many=True)
+    ingredients = IngredientInRecipeSerializer(required=True, source='recipe_ingredients', many=True)
     image = Base64ImageField()
-    # Теги при чтении
     tags = TagSerializer(many=True, read_only=True)
     author = serializers.SerializerMethodField()
     is_favorited = serializers.SerializerMethodField()
@@ -43,6 +40,36 @@ class RecipeSerializer(serializers.ModelSerializer):
             'is_favorited', 'is_in_shopping_cart',
             'name', 'image', 'text', 'cooking_time'
         ]
+
+    def validate(self, data):
+        """
+        Проверка, чтобы `ingredients` не было пустым,
+        ингредиенты не повторялись, и их количество было >= 1.
+        """
+        ingredients = data.get('recipe_ingredients', [])
+        if not ingredients:
+            raise serializers.ValidationError({
+                'ingredients': 'Это поле не может быть пустым.'
+            })
+
+        # Проверка на уникальность ингредиентов
+        unique_ingredients = set()
+        for ingredient in ingredients:
+            ingredient_id = ingredient.get('ingredient').id
+            if ingredient_id in unique_ingredients:
+                raise serializers.ValidationError({
+                    'ingredients': 'Ингредиенты не должны повторяться.'
+                })
+            unique_ingredients.add(ingredient_id)
+
+            # Проверка, что количество ингредиентов >= 1
+            amount = ingredient.get('amount')
+            if amount is None or int(amount) < 1:
+                raise serializers.ValidationError({
+                    'ingredients': 'Количество каждого ингредиента должно быть не менее 1.'
+                })
+
+        return data
 
     def get_author(self, obj):
         user = obj.author

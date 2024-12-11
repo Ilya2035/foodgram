@@ -5,17 +5,45 @@ import imghdr
 from django.core.files.base import ContentFile
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.core.validators import RegexValidator
 
 from .models import Profile, Subscription
 from recipes.models import Recipe
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True, required=True)
+    email = serializers.EmailField(required=True)
+    username = serializers.CharField(
+        required=True,
+        max_length=128,
+        validators=[
+            RegexValidator(
+                regex=r'^[\w.@+-]+$',
+                message="Никнейм может содержать только буквы, цифры и символы @ . + - _"
+            )
+        ]
+    )
+    first_name = serializers.CharField(required=True, max_length=128)
+    last_name = serializers.CharField(required=True, max_length=128)
 
     class Meta:
         model = User
-        fields = ['email', 'username', 'first_name', 'last_name', 'password']
+        fields = ['id', 'email', 'username', 'first_name', 'last_name', 'password']
+
+    def validate_email(self, value):
+        """Проверяем, что email уникален."""
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError(
+                "Пользователь с таким email уже существует.")
+        return value
+
+    def validate_username(self, value):
+        """Проверяем, что username уникален."""
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError(
+                "Пользователь с таким username уже существует.")
+        return value
 
     def create(self, validated_data):
         user = User.objects.create(
