@@ -43,9 +43,28 @@ class RecipeSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """
-        Проверка, чтобы `ingredients` не было пустым,
-        ингредиенты не повторялись, и их количество было >= 1.
+        Проверка полей `tags`, `ingredients`, `cooking_time`, их существования, уникальности и корректности.
         """
+        tags = self.initial_data.get('tags')
+        if not tags:
+            raise serializers.ValidationError({
+                'tags': 'Это поле обязательно.'
+            })
+
+        # Проверка на уникальность тегов
+        if len(tags) != len(set(tags)):
+            raise serializers.ValidationError({
+                'tags': 'Теги не должны повторяться.'
+            })
+
+        # Проверка существования всех тегов
+        nonexistent_tags = [tag_id for tag_id in tags if
+                            not Tag.objects.filter(id=tag_id).exists()]
+        if nonexistent_tags:
+            raise serializers.ValidationError({
+                'tags': f'Некоторые из указанных тегов не существуют: {nonexistent_tags}.'
+            })
+
         ingredients = data.get('recipe_ingredients', [])
         if not ingredients:
             raise serializers.ValidationError({
@@ -68,6 +87,13 @@ class RecipeSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'ingredients': 'Количество каждого ингредиента должно быть не менее 1.'
                 })
+
+        # Проверка поля cooking_time
+        cooking_time = data.get('cooking_time')
+        if cooking_time is None or int(cooking_time) < 1:
+            raise serializers.ValidationError({
+                'cooking_time': 'Время приготовления должно быть не менее 1 минуты.'
+            })
 
         return data
 
