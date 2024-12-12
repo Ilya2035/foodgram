@@ -27,7 +27,7 @@ class RecipeListCreateView(ListCreateAPIView):
     search_fields = ['name', 'text']
 
     def get_queryset(self):
-        """Фильтрация рецептов по параметру is_favorited."""
+        """Фильтрация рецептов по параметрам is_favorited и is_in_shopping_cart."""
         queryset = Recipe.objects.all()
         user = self.request.user
 
@@ -37,6 +37,21 @@ class RecipeListCreateView(ListCreateAPIView):
             queryset = queryset.filter(
                 Exists(
                     Favorite.objects.filter(user=user, recipe=OuterRef('id'))
+                )
+            )
+
+        # Фильтрация по корзине покупок
+        is_in_shopping_cart = self.request.query_params.get('is_in_shopping_cart')
+        if is_in_shopping_cart == '1' and user.is_authenticated:
+            queryset = queryset.filter(
+                Exists(
+                    ShoppingCart.objects.filter(user=user, recipe=OuterRef('id'))
+                )
+            )
+        elif is_in_shopping_cart == '0' and user.is_authenticated:
+            queryset = queryset.exclude(
+                Exists(
+                    ShoppingCart.objects.filter(user=user, recipe=OuterRef('id'))
                 )
             )
 

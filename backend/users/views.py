@@ -120,6 +120,7 @@ class LogoutView(APIView):
 class SubscriptionsView(ListAPIView):
     serializer_class = UserWithRecipesSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = PaginationforUser
 
     def get_queryset(self):
         return User.objects.filter(followers__user=self.request.user)
