@@ -6,7 +6,8 @@ from rest_framework.response import Response
 from rest_framework import status, permissions, filters
 from rest_framework.generics import (
     RetrieveUpdateDestroyAPIView,
-    ListCreateAPIView
+    ListCreateAPIView,
+    GenericAPIView
 )
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
@@ -15,6 +16,19 @@ from .filters import RecipeFilter
 from .models import Recipe, ShoppingCart, Favorite
 from .serializers import RecipeSerializer, RecipeSimpleSerializer
 from .pagination import PaginationforUser
+
+
+class IsAuthorOrReadOnly(permissions.BasePermission):
+    """
+    Разрешение: для SAFE-методов доступ открыт всем,
+    для небезопасных методов — только автору объекта.
+    """
+    message = "У вас недостаточно прав для выполнения данного действия."
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.author == request.user
 
 
 class RecipeListCreateView(ListCreateAPIView):
@@ -28,31 +42,25 @@ class RecipeListCreateView(ListCreateAPIView):
 
     def get_queryset(self):
         """Фильтрация рецептов по параметрам is_favorited и is_in_shopping_cart."""
-        queryset = Recipe.objects.all()
+        queryset = super().get_queryset()
         user = self.request.user
 
         # Фильтрация по избранному
         is_favorited = self.request.query_params.get('is_favorited')
         if is_favorited == '1' and user.is_authenticated:
             queryset = queryset.filter(
-                Exists(
-                    Favorite.objects.filter(user=user, recipe=OuterRef('id'))
-                )
+                Exists(Favorite.objects.filter(user=user, recipe=OuterRef('id')))
             )
 
         # Фильтрация по корзине покупок
         is_in_shopping_cart = self.request.query_params.get('is_in_shopping_cart')
         if is_in_shopping_cart == '1' and user.is_authenticated:
             queryset = queryset.filter(
-                Exists(
-                    ShoppingCart.objects.filter(user=user, recipe=OuterRef('id'))
-                )
+                Exists(ShoppingCart.objects.filter(user=user, recipe=OuterRef('id')))
             )
         elif is_in_shopping_cart == '0' and user.is_authenticated:
             queryset = queryset.exclude(
-                Exists(
-                    ShoppingCart.objects.filter(user=user, recipe=OuterRef('id'))
-                )
+                Exists(ShoppingCart.objects.filter(user=user, recipe=OuterRef('id')))
             )
 
         return queryset
@@ -64,25 +72,12 @@ class RecipeListCreateView(ListCreateAPIView):
 class RecipeDetailView(RetrieveUpdateDestroyAPIView):
     queryset = Recipe.objects.all()
     serializer_class = RecipeSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsAuthorOrReadOnly]
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
-
-    def patch(self, request, *args, **kwargs):
-        recipe = self.get_object()
-        if recipe.author != request.user:
-            raise PermissionDenied({"detail": "У вас недостаточно прав для изменения данного рецепта."})
-        return super().partial_update(request, *args, **kwargs)
-
-    def delete(self, request, *args, **kwargs):
-        recipe = self.get_object()
-        if recipe.author != request.user:
-            raise PermissionDenied({"detail": "У вас недостаточно прав для удаления данного рецепта."})
-        recipe.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RecipeLinkView(APIView):
@@ -90,7 +85,6 @@ class RecipeLinkView(APIView):
 
     def get(self, request, id):
         recipe = get_object_or_404(Recipe, id=id)
-        # Генерация короткой ссылки (пример, замените на реальную логику)
         short_link = f"https://foodgram.example.org/s/{recipe.id}"
         return Response({"short-link": short_link}, status=status.HTTP_200_OK)
 
@@ -100,86 +94,66 @@ class DownloadShoppingCartView(APIView):
 
     def get(self, request):
         user = request.user
-        shopping_cart = ShoppingCart.objects.filter(user=user).select_related('recipe').prefetch_related('recipe__recipe_ingredients__ingredient')
+        shopping_cart = ShoppingCart.objects.filter(
+            user=user
+        ).select_related('recipe').prefetch_related('recipe__recipe_ingredients__ingredient')
 
         if not shopping_cart.exists():
             return Response({"detail": "Список покупок пуст."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Формирование контента файла
-        content = "Список покупок:\n\n"
+        lines = ["Список покупок:\n\n"]
         for item in shopping_cart:
             recipe = item.recipe
-            content += f"{recipe.name}:\n"
-            # Используем промежуточную модель RecipeIngredient для получения количества
+            lines.append(f"{recipe.name}:\n")
             for recipe_ingredient in recipe.recipe_ingredients.all():
                 ingredient = recipe_ingredient.ingredient
-                amount = recipe_ingredient.amount
-                content += f" - {ingredient.name} ({ingredient.measurement_unit}): {amount}\n"
-            content += "\n"
+                lines.append(f" - {ingredient.name} ({ingredient.measurement_unit}): {recipe_ingredient.amount}\n")
+            lines.append("\n")
 
-        # Создание HTTP-ответа с файлом
+        content = "".join(lines)
         response = HttpResponse(content, content_type='text/plain')
         response['Content-Disposition'] = 'attachment; filename="shopping_cart.txt"'
         return response
 
 
-class ShoppingCartView(APIView):
+class BaseRecipeRelationView(APIView):
+    """
+    Базовый класс для добавления/удаления рецептов в списки (избранное, корзина).
+    Дочерние классы переопределяют relation_model, already_exists_error и not_exists_error.
+    """
     permission_classes = [permissions.IsAuthenticated]
+    relation_model = None
+    already_exists_error = ""
+    not_exists_error = ""
+
+    def get_recipe(self):
+        return get_object_or_404(Recipe, id=self.kwargs.get('id'))
 
     def post(self, request, id):
-        """Добавление рецепта в список покупок."""
-        try:
-            recipe = Recipe.objects.get(id=id)
-        except Recipe.DoesNotExist:
-            return Response({"detail": "Рецепт не найден."}, status=status.HTTP_404_NOT_FOUND)
+        recipe = self.get_recipe()
+        if self.relation_model.objects.filter(user=request.user, recipe=recipe).exists():
+            return Response({"detail": self.already_exists_error}, status=status.HTTP_400_BAD_REQUEST)
 
-        if ShoppingCart.objects.filter(user=request.user, recipe=recipe).exists():
-            return Response({"detail": "Рецепт уже в списке покупок."}, status=status.HTTP_400_BAD_REQUEST)
-
-        ShoppingCart.objects.create(user=request.user, recipe=recipe)
+        self.relation_model.objects.create(user=request.user, recipe=recipe)
         serializer = RecipeSimpleSerializer(recipe)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, id):
-        """Удаление рецепта из списка покупок."""
-        try:
-            recipe = Recipe.objects.get(id=id)
-        except Recipe.DoesNotExist:
-            return Response({"detail": "Рецепт не найден."}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            shopping_cart_item = ShoppingCart.objects.get(user=request.user, recipe=recipe)
-            shopping_cart_item.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except ShoppingCart.DoesNotExist:
-            return Response({"detail": "Рецепта нет в списке покупок."}, status=status.HTTP_400_BAD_REQUEST)
-
-
-class FavoriteView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, id):
-        """Добавление рецепта в избранное."""
-        recipe = get_object_or_404(Recipe, id=id)
-
-        # Проверка: рецепт уже в избранном
-        if Favorite.objects.filter(user=request.user, recipe=recipe).exists():
-            return Response({"detail": "Рецепт уже в избранном."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Добавление в избранное
-        Favorite.objects.create(user=request.user, recipe=recipe)
-        serializer = RecipeSimpleSerializer(recipe)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    def delete(self, request, id):
-        """Удаление рецепта из избранного."""
-        recipe = get_object_or_404(Recipe, id=id)
-
-        # Проверка: рецепт отсутствует в избранном
-        favorite = Favorite.objects.filter(user=request.user, recipe=recipe).first()
-        if not favorite:
-            return Response({"detail": "Рецепт отсутствует в избранном."}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Удаление из избранного
-        favorite.delete()
+        recipe = self.get_recipe()
+        relation_item = self.relation_model.objects.filter(user=request.user, recipe=recipe).first()
+        if not relation_item:
+            return Response({"detail": self.not_exists_error}, status=status.HTTP_400_BAD_REQUEST)
+        relation_item.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ShoppingCartView(BaseRecipeRelationView):
+    relation_model = ShoppingCart
+    already_exists_error = "Рецепт уже в списке покупок."
+    not_exists_error = "Рецепта нет в списке покупок."
+
+
+class FavoriteView(BaseRecipeRelationView):
+    relation_model = Favorite
+    already_exists_error = "Рецепт уже в избранном."
+    not_exists_error = "Рецепт отсутствует в избранном."
