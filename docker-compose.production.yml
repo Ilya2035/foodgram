@@ -26,15 +26,3 @@ services:
       - static:/frontend_static
     depends_on:
       - backend
-
-  nginx:
-    image: fyrno/foodgram_nginx
-    env_file: .env
-    volumes:
-      - static:/staticfiles
-      - media:/mediafiles
-    ports:
-      - 9000:9000
-    depends_on:
-      - backend
-      - frontend
