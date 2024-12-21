@@ -1,4 +1,3 @@
-
 volumes:
   pg_data:
   static:
@@ -20,20 +19,22 @@ services:
     depends_on:
       - db
 
-    frontend:
-      image: fyrno/foodgram_frontend
-      command: cp -r /app/build/. /frontend_static/
-      volumes:
-        - static:/frontend_static
+  frontend:
+    image: fyrno/foodgram_frontend
+    command: cp -r /app/build/. /frontend_static/
+    volumes:
+      - static:/frontend_static
+    depends_on:
+      - backend
 
-    nginx:
-      image: fyrno/foodgram_nginx
-      env_file: .env
-      volumes:
-        - static:/staticfiles
-        - media:/mediafiles
-      ports:
-        - 9000:80
-      depends_on:
-        - backend
-        - frontend
+  nginx:
+    image: fyrno/foodgram_nginx
+    env_file: .env
+    volumes:
+      - static:/staticfiles
+      - media:/mediafiles
+    ports:
+      - 9000:80
+    depends_on:
+      - backend
+      - frontend
