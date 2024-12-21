@@ -10,8 +10,6 @@ services:
     env_file: .env
     volumes:
       - pg_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
 
   backend:
     image: "fyrno/foodgram_backend"
@@ -23,8 +21,8 @@ services:
       - db
 
     frontend:
-      image: "fyrno/foodgram_frontend"
-      env_file: .env
+      image: fyrno/foodgram_frontend
+      command: cp -r /app/build/. /frontend_static/
       volumes:
         - static:/frontend_static
 
@@ -32,10 +30,10 @@ services:
       image: "fyrno/foodgram_nginx"
       env_file: .env
       volumes:
-        - static:/backend_static
-        - media:/backend_media
+        - static:/staticfiles
+        - media:/mediafiles
       ports:
-        - 80:80
+        - 9000:80
       depends_on:
         - backend
         - frontend
