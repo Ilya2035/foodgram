@@ -12,7 +12,7 @@ services:
       - pg_data:/var/lib/postgresql/data
 
   backend:
-    image: "fyrno/foodgram_backend"
+    image: fyrno/foodgram_backend
     env_file: .env
     volumes:
       - static:/backend_static
@@ -21,13 +21,13 @@ services:
       - db
 
     frontend:
-      image: "fyrno/foodgram_frontend"
+      image: fyrno/foodgram_frontend
       command: cp -r /app/build/. /frontend_static/
       volumes:
         - static:/frontend_static
 
     nginx:
-      image: "fyrno/foodgram_nginx"
+      image: fyrno/foodgram_nginx
       env_file: .env
       volumes:
         - static:/staticfiles
