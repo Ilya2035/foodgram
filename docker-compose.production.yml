@@ -26,5 +26,6 @@ services:
     command: cp -r /app/build/. /frontend_static/
     volumes:
       - /var/www/foodgram/static:/frontend_static
+      - /var/www/foodgram/media:/frontend_media
     depends_on:
       - backend
