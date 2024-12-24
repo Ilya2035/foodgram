@@ -18,14 +18,20 @@ services:
       - media:/backend_media
     depends_on:
       - db
-    ports:
-      - "9000:9000"
 
   frontend:
     image: fyrno/foodgram_frontend
     command: cp -r /app/build/. /frontend_static/
     volumes:
-      - /var/www/foodgram/static:/frontend_static
-      - /var/www/foodgram/media:/frontend_media
+      - static:/frontend_static
+
+  nginx:
+    image: fyrno/foodgram_nginx
+    env_file: .env
+    volumes:
+      - static:/staticfiles
+      - media:/mediafiles
+    ports:
+      - 9000:80
     depends_on:
       - backend
