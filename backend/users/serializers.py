@@ -68,8 +68,8 @@ class UserListRetrieveSerializer(serializers.ModelSerializer):
         fields = ['email', 'id', 'username', 'first_name', 'last_name', 'is_subscribed', 'avatar']
 
     def get_is_subscribed(self, obj):
-        # Логику подписок реализуйте сами, пока False
-        return False
+        user = self.context.get('request').user
+        return Subscription.objects.filter(user=user, author=obj).exists()
 
     def get_avatar(self, obj):
         request = self.context.get('request')
