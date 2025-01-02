@@ -14,6 +14,9 @@ class Recipe(models.Model):
     tags = models.ManyToManyField(Tag, related_name='recipes')
     ingredients = models.ManyToManyField(Ingredient, through='RecipeIngredient', related_name='recipes')
 
+    def get_absolute_url(self):
+        return f"/recipes/{self.id}/"
+
     def __str__(self):
         return self.name
 
