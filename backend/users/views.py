@@ -1,15 +1,15 @@
 from rest_framework.views import APIView
-from rest_framework.generics import (ListCreateAPIView,
-                                     RetrieveAPIView,
-                                     ListAPIView
-                                     )
-from rest_framework import status, permissions, generics
+from rest_framework.generics import ListCreateAPIView, RetrieveAPIView, ListAPIView
+from rest_framework import status, permissions
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.authtoken.views import ObtainAuthToken
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from django.shortcuts import get_object_or_404
+
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 
 from .serializers import (
     UserCreateSerializer,
@@ -79,8 +79,16 @@ class ChangePasswordView(APIView):
             current_password = serializer.validated_data['current_password']
             new_password = serializer.validated_data['new_password']
             user = request.user
+
             if not user.check_password(current_password):
                 return Response({"current_password": ["Неверный текущий пароль."]}, status=400)
+
+            # Валидируем новый пароль
+            try:
+                validate_password(new_password, user=user)
+            except ValidationError as e:
+                return Response({"new_password": list(e.messages)}, status=400)
+
             user.set_password(new_password)
             user.save()
             return Response(status=204)
@@ -134,21 +142,15 @@ class SubscribeView(APIView):
         author = get_object_or_404(User, id=id)
 
         if user == author:
-            return Response(
-                {"detail": "Нельзя подписаться на самого себя."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "Нельзя подписаться на самого себя."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         if Subscription.objects.filter(user=user, author=author).exists():
-            return Response(
-                {"detail": "Вы уже подписаны на этого пользователя."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": "Вы уже подписаны на этого пользователя."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         Subscription.objects.create(user=user, author=author)
-        serializer = UserWithRecipesSerializer(
-            author, context={'request': request}
-        )
+        serializer = UserWithRecipesSerializer(author, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def delete(self, request, id):
@@ -160,7 +162,5 @@ class SubscribeView(APIView):
             subscription.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
 
-        return Response(
-            {"detail": "Вы не подписаны на этого пользователя."},
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({"detail": "Вы не подписаны на этого пользователя."},
+                        status=status.HTTP_400_BAD_REQUEST)

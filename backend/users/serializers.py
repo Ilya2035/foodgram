@@ -6,6 +6,8 @@ from django.core.files.base import ContentFile
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 
 from .models import Profile, Subscription
 from recipes.models import Recipe
@@ -35,15 +37,35 @@ class UserCreateSerializer(serializers.ModelSerializer):
         """Проверяем, что email уникален."""
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError(
-                "Пользователь с таким email уже существует.")
+                "Пользователь с таким email уже существует."
+            )
         return value
 
     def validate_username(self, value):
         """Проверяем, что username уникален."""
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError(
-                "Пользователь с таким username уже существует.")
+                "Пользователь с таким username уже существует."
+            )
         return value
+
+    def validate(self, attrs):
+        """Вызов встроенной проверки пароля."""
+        password = attrs.get('password')
+        # Создаём «фейкового» пользователя, чтобы валидатор учитывал username/email
+        user = User(
+            username=attrs.get('username'),
+            email=attrs.get('email'),
+            first_name=attrs.get('first_name', ''),
+            last_name=attrs.get('last_name', '')
+        )
+        try:
+            validate_password(password, user=user)
+        except ValidationError as e:
+            # Превращаем ошибки в формат DRF
+            raise serializers.ValidationError({'password': list(e.messages)})
+
+        return attrs
 
     def create(self, validated_data):
         user = User.objects.create(
