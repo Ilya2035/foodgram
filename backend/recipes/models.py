@@ -17,6 +17,9 @@ class Recipe(models.Model):
     def get_absolute_url(self):
         return f"/recipes/{self.id}/"
 
+    class Meta:
+        ordering = ['-id']
+
     def __str__(self):
         return self.name
 
