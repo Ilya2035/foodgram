@@ -86,7 +86,7 @@ class RecipeLinkView(APIView):
     def get(self, request, id):
         recipe = get_object_or_404(Recipe, id=id)
         short_link = request.build_absolute_uri(recipe.get_absolute_url())
-        return Response({"short_link": short_link}, status=status.HTTP_200_OK)
+        return Response({"short-link": short_link}, status=status.HTTP_200_OK)
 
 
 class DownloadShoppingCartView(APIView):
