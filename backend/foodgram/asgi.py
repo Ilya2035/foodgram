@@ -1,5 +1,10 @@
-import os
+"""
+ASGI конфигурация для проекта Foodgram.
 
+Этот модуль содержит ASGI-приложение, используемое для развертывания проекта.
+"""
+
+import os
 from django.core.asgi import get_asgi_application
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'foodgram.settings')

@@ -1,3 +1,9 @@
+"""
+Настройки проекта Foodgram.
+
+Этот модуль содержит базовые настройки Django для проекта Foodgram.
+"""
+
 import os
 from pathlib import Path
 
@@ -13,7 +19,6 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 SECRET_KEY = os.getenv('SECRET_KEY', get_random_secret_key())
 
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
-
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -77,9 +82,15 @@ DJOSER = {
     'LOGIN_FIELD': 'email',
     'USER_CREATE_PASSWORD_RETYPE': True,
     'SERIALIZERS': {
-        'user_create': 'users.serializers.CustomUserCreateSerializer',
-        'user': 'users.serializers.CustomUserSerializer',
-        'current_user': 'users.serializers.CustomUserSerializer',
+        'user_create': (
+            'users.serializers.CustomUserCreateSerializer'
+        ),
+        'user': (
+            'users.serializers.CustomUserSerializer'
+        ),
+        'current_user': (
+            'users.serializers.CustomUserSerializer'
+        ),
     },
 }
 
@@ -96,22 +107,36 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': (
+        'rest_framework.pagination.PageNumberPagination'
+    ),
     'PAGE_SIZE': 6,
 }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'NAME': (
+            'django.contrib.auth.password_validation.'
+            'UserAttributeSimilarityValidator'
+        ),
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'NAME': (
+            'django.contrib.auth.password_validation.'
+            'MinimumLengthValidator'
+        ),
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        'NAME': (
+            'django.contrib.auth.password_validation.'
+            'CommonPasswordValidator'
+        ),
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        'NAME': (
+            'django.contrib.auth.password_validation.'
+            'NumericPasswordValidator'
+        ),
     },
 ]
 
@@ -132,4 +157,3 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = '/backend_media/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-

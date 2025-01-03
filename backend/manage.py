@@ -1,3 +1,5 @@
+"""Менедж."""
+
 import os
 import sys
 
