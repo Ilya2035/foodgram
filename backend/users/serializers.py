@@ -114,14 +114,19 @@ class UserListRetrieveSerializer(serializers.ModelSerializer):
 
         Указывает модель User и поля для сериализации.
         """
-
         model = User
-        fields = ['email', 'id', 'username', 'first_name',
-                  'last_name', 'is_subscribed', 'avatar']
+        fields = [
+            'email', 'id', 'username',
+            'first_name', 'last_name',
+            'is_subscribed', 'avatar'
+        ]
 
     def get_is_subscribed(self, obj):
         """Проверяет, подписан ли текущий пользователь на obj."""
-        user = self.context.get('request').user
+        request = self.context.get('request')
+        user = request.user
+        if not user.is_authenticated:
+            return False
         return Subscription.objects.filter(user=user, author=obj).exists()
 
     def get_avatar(self, obj):
