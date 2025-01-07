@@ -7,10 +7,15 @@
 
 from rest_framework import serializers
 
-from .models import Recipe, RecipeIngredient, Favorite, ShoppingCart
+from recipes.models import (
+    Recipe,
+    RecipeIngredient,
+    Favorite,
+    ShoppingCart
+)
 from ingredients.models import Ingredient
 from tags.models import Tag
-from .fields import Base64ImageField
+from recipes.fields import Base64ImageField
 
 
 class TagSerializer(serializers.ModelSerializer):

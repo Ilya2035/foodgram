@@ -29,8 +29,8 @@ from .serializers import (
     AvatarSerializer,
     UserWithRecipesSerializer
 )
-from .models import Profile, Subscription
-from .pagination import PaginationforUser
+from users.models import Profile, Subscription
+from users.pagination import PaginationforUser
 
 
 class UserListView(ListCreateAPIView):

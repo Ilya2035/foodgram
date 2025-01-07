@@ -17,10 +17,10 @@ from rest_framework.generics import (
 )
 from django.shortcuts import get_object_or_404
 
-from .filters import RecipeFilter
-from .models import Recipe, ShoppingCart, Favorite
+from recipes.filters import RecipeFilter
+from recipes.models import Recipe, ShoppingCart, Favorite
 from .serializers import RecipeSerializer, RecipeSimpleSerializer
-from .pagination import PaginationforUser
+from recipes.pagination import PaginationforUser
 
 
 class IsAuthorOrReadOnly(permissions.BasePermission):

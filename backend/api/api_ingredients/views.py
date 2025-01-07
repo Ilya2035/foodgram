@@ -9,7 +9,7 @@ import urllib.parse
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 from rest_framework import permissions
 
-from .models import Ingredient
+from ingredients.models import Ingredient
 from .serializers import IngredientSerializer
 
 

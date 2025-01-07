@@ -7,7 +7,7 @@ Views для приложения Tags.
 from rest_framework import permissions
 from rest_framework.generics import ListAPIView, RetrieveAPIView
 
-from .models import Tag
+from tags.models import Tag
 from .serializers import TagSerializer
 
 
