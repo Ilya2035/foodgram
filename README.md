@@ -8,7 +8,9 @@
    ```bash
    python manage.py load_ingredients data/ingredients.json
 
-3. Это загрузит ингредиенты в базу данных. 3. Запустите проект:
+Это загрузит ингредиенты в базу данных.
+
+3. Запустите проект:
     ```bash
     docker-compose up --build
 
