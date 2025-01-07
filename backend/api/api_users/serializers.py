@@ -5,11 +5,6 @@
 их профилями, подписками и аватарами.
 """
 
-import base64
-import uuid
-import imghdr
-
-from django.core.files.base import ContentFile
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
@@ -115,6 +110,7 @@ class UserListRetrieveSerializer(serializers.ModelSerializer):
 
         Указывает модель User и поля для сериализации.
         """
+
         model = User
         fields = [
             'email', 'id', 'username',
