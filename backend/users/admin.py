@@ -1,25 +1,48 @@
-"""
-Админка для приложения Users.
-
-Этот модуль настраивает отображение моделей Profile и Subscription
-в интерфейсе админки.
-"""
-
 from django.contrib import admin
-from .models import Profile, Subscription
+from django.contrib.auth.admin import UserAdmin
+
+from .models import FoodgramUser, Subscription
 
 
-@admin.register(Profile)
-class ProfileAdmin(admin.ModelAdmin):
+@admin.register(FoodgramUser)
+class CustomUserAdmin(UserAdmin):
     """
-    Настройка интерфейса админки для модели Profile.
+    Настройка интерфейса админки для модели CustomUser.
 
-    Отображает данные профилей пользователей с возможностью поиска.
+    Отображает данные пользователя (включая email, аватар),
+    с возможностью поиска и фильтрации.
     """
 
-    list_display = ('user', 'avatar')
-    search_fields = ('user__username', 'user__email')
-    readonly_fields = ('user',)
+    list_display = (
+        'id', 'username', 'email', 'first_name', 'last_name', 'avatar'
+    )
+    search_fields = ('username', 'email')
+    list_filter = ('is_staff', 'is_superuser', 'is_active')
+    fieldsets = (
+        (None, {
+            'fields': ('email', 'username', 'password')
+        }),
+        ("Персональная информация", {
+            'fields': ('first_name', 'last_name', 'avatar')
+        }),
+        ("Права доступа", {
+            'fields': ('is_active', 'is_staff', 'is_superuser',
+                       'groups', 'user_permissions')
+        }),
+        ("Даты", {
+            'fields': ('last_login', 'date_joined')
+        }),
+    )
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': (
+                'email', 'username', 'first_name', 'last_name',
+                'password1', 'password2', 'avatar'
+            ),
+        }),
+    )
+    ordering = ('id',)
 
 
 @admin.register(Subscription)
@@ -31,5 +54,6 @@ class SubscriptionAdmin(admin.ModelAdmin):
     """
 
     list_display = ('user', 'author')
-    search_fields = ('user__username', 'author__username')
+    search_fields = ('user__email', 'user__username', 'author__email',
+                     'author__username')
     list_filter = ('user', 'author')

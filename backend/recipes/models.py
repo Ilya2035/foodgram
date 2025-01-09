@@ -1,12 +1,6 @@
-"""
-Модели для приложения Recipes.
-
-Этот модуль содержит модели для рецептов, ингредиентов, тегов,
-избранного и списка покупок.
-"""
-
 from django.db import models
-from django.contrib.auth.models import User
+from django.conf import settings
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 from tags.models import Tag
 from ingredients.models import Ingredient
@@ -20,33 +14,53 @@ class Recipe(models.Model):
     изображении, авторе, тегах и ингредиентах.
     """
 
-    name = models.CharField(max_length=255)
-    text = models.TextField()
-    cooking_time = models.PositiveIntegerField()
-    image = models.ImageField(upload_to='recipes/images/')
+    name = models.CharField(
+        max_length=256,
+        verbose_name="Название рецепта"
+    )
+    text = models.TextField(
+        verbose_name="Описание рецепта"
+    )
+    cooking_time = models.PositiveSmallIntegerField(
+        verbose_name="Время приготовления (в минутах)",
+        validators=[
+            MinValueValidator(
+                1,
+                message="Время приготовления не может быть меньше 1 минуты."
+            ),
+            MaxValueValidator(
+                32000,
+                message="Время приготовления не может превышать 32000 минут."
+            )
+        ]
+    )
+    image = models.ImageField(
+        upload_to='recipes/images/',
+        verbose_name="Изображение рецепта"
+    )
     author = models.ForeignKey(
-        User,
+        settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='recipes'
+        related_name='recipes',
+        verbose_name="Автор рецепта"
     )
     tags = models.ManyToManyField(
         Tag,
-        related_name='recipes'
+        related_name='recipes',
+        verbose_name="Теги"
     )
     ingredients = models.ManyToManyField(
         Ingredient,
         through='RecipeIngredient',
-        related_name='recipes'
+        related_name='recipes',
+        verbose_name="Ингредиенты"
     )
-
-    def get_absolute_url(self):
-        """Возвращает абсолютный URL для рецепта."""
-        return f"/recipes/{self.id}/"
 
     class Meta:
         """Метаданные для модели Recipe."""
-
-        ordering = ['-id']
+        ordering = ['name']
+        verbose_name = "Рецепт"
+        verbose_name_plural = "Рецепты"
 
     def __str__(self):
         """Возвращает строковое представление рецепта."""
@@ -63,66 +77,98 @@ class RecipeIngredient(models.Model):
     recipe = models.ForeignKey(
         Recipe,
         on_delete=models.CASCADE,
-        related_name='recipe_ingredients'
+        related_name='recipe_ingredients',
+        verbose_name="Рецепт"
     )
     ingredient = models.ForeignKey(
         Ingredient,
-        on_delete=models.CASCADE
+        on_delete=models.CASCADE,
+        verbose_name="Ингредиент"
     )
-    amount = models.PositiveIntegerField()
+    amount = models.PositiveSmallIntegerField(
+        verbose_name="Количество ингредиента",
+        validators=[
+            MinValueValidator(
+                1,
+                message="Количество не может быть меньше 1."
+            ),
+            MaxValueValidator(
+                32000,
+                message="Количество не может превышать 32000."
+            )
+        ]
+    )
 
     class Meta:
         """Метаданные для модели RecipeIngredient."""
-
-        unique_together = ['recipe', 'ingredient']
+        verbose_name = "Ингредиент в рецепте"
+        verbose_name_plural = "Ингредиенты в рецептах"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['recipe', 'ingredient'],
+                name='unique_recipe_ingredient'
+            )
+        ]
 
     def __str__(self):
         """Возвращает строковое представление ингредиента в рецепте."""
-        return f"{self.ingredient.name} для {self.recipe.name}"
+        return f"{self.ingredient.name} для «{self.recipe.name}»"
 
 
-class ShoppingCart(models.Model):
+class UserRecipeBase(models.Model):
+    """
+    Абстрактная модель, хранящая связь пользователя и рецепта.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        verbose_name="Пользователь"
+    )
+    recipe = models.ForeignKey(
+        Recipe,
+        on_delete=models.CASCADE,
+        verbose_name="Рецепт"
+    )
+
+    class Meta:
+        abstract = True
+
+    def __str__(self):
+        return f"{self.user.username} — «{self.recipe.name}»"
+
+
+class ShoppingCart(UserRecipeBase):
     """
     Модель для списка покупок.
 
     Хранит связь между пользователем и рецептами в его списке покупок.
     """
 
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='shopping_cart'
-    )
-    recipe = models.ForeignKey(
-        Recipe,
-        on_delete=models.CASCADE,
-        related_name='in_shopping_cart'
-    )
-
-    def __str__(self):
-        """Возвращает строковое представление записи в списке покупок."""
-        return f"{self.user.username} - {self.recipe.name}"
+    class Meta:
+        verbose_name = "Список покупок"
+        verbose_name_plural = "Списки покупок"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_shopping_cart_user_recipe'
+            )
+        ]
 
 
-class Favorite(models.Model):
+class Favorite(UserRecipeBase):
     """
     Модель для избранных рецептов.
 
     Хранит связь между пользователем и рецептами в его избранном.
     """
 
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='favorites'
-    )
-    recipe = models.ForeignKey(
-        Recipe,
-        on_delete=models.CASCADE,
-        related_name='favorites'
-    )
-
     class Meta:
-        """Метаданные для модели Favorite."""
-
-        unique_together = ('user', 'recipe')
+        verbose_name = "Избранное"
+        verbose_name_plural = "Избранное"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'recipe'],
+                name='unique_favorite_user_recipe'
+            )
+        ]

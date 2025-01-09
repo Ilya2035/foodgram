@@ -1,9 +1,3 @@
-"""
-Конфигурация приложения Recipes.
-
-Этот модуль задаёт конфигурацию для приложения Recipes.
-"""
-
 from django.apps import AppConfig
 
 

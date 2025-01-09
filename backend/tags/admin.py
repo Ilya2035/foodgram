@@ -1,9 +1,3 @@
-"""
-Админка для приложения Tags.
-
-Этот модуль настраивает отображение модели Tag в интерфейсе админки.
-"""
-
 from django.contrib import admin
 from .models import Tag
 

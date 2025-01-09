@@ -1,66 +1,114 @@
-"""
-Модели для приложения Users.
-
-Этот модуль содержит модели Profile и Subscription для работы с профилями
-пользователей и подписками.
-"""
-
+from django.conf import settings
+from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.contrib.auth.models import User
+from django.core.validators import (
+    EmailValidator, RegexValidator, MaxLengthValidator
+)
+from django.utils.translation import gettext_lazy as _
 
+from .constants import (
+    USER_EMAIL_MAX_LENGTH,
+    USER_NAME_MAX_LENGTH,
+    USER_FIRST_NAME_MAX_LENGTH,
+    USER_LAST_NAME_MAX_LENGTH,
+)
 
-class Profile(models.Model):
+class FoodgramUser(AbstractUser):
     """
-    Модель профиля пользователя.
+    Кастомная модель пользователя.
 
-    Атрибуты:
-        user: Связанный пользователь.
-        avatar: Аватар пользователя, загружается в директорию avatars/.
+    - email используется в качестве USERNAME_FIELD (логин).
+    - username, first_name и last_name в REQUIRED_FIELDS
+      (требуется при создании суперпользователя).
+    - avatar хранит аватар пользователя.
     """
 
-    user = models.OneToOneField(
-        User, on_delete=models.CASCADE, related_name='profile'
+    email = models.EmailField(
+        _('email address'),
+        max_length=USER_EMAIL_MAX_LENGTH,  # из констант
+        unique=True,
+        validators=[EmailValidator()],
+        help_text="Используется как логин для входа в систему"
     )
-    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    username = models.CharField(
+        _('username'),
+        max_length=USER_NAME_MAX_LENGTH,
+        unique=True,
+        help_text=_(
+            "Обязательное. 150 символов или меньше. "
+            "Только буквы, цифры и @/./+/-/_."
+        ),
+        validators=[
+            RegexValidator(
+                r'^[\w.@+-]+\Z',
+                _("Введите корректный юзернейм.")
+            ),
+            MaxLengthValidator(USER_NAME_MAX_LENGTH)
+        ],
+        error_messages={
+            'unique': _("Пользователь с таким именем уже существует."),
+        },
+    )
+    first_name = models.CharField(
+        _('first name'),
+        max_length=USER_FIRST_NAME_MAX_LENGTH,
+        blank=True
+    )
+    last_name = models.CharField(
+        _('last name'),
+        max_length=USER_LAST_NAME_MAX_LENGTH,
+        blank=True
+    )
+
+    avatar = models.ImageField(
+        _("Аватар"),
+        upload_to='avatars/',
+        blank=True,
+        null=True,
+        help_text="Загрузите изображение в одном из поддерживаемых форматов"
+    )
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
+
+    class Meta:
+        verbose_name = "Пользователь"
+        verbose_name_plural = "Пользователи"
 
     def __str__(self):
-        """
-        Возвращает строковое представление профиля.
-
-        Возвращает имя пользователя.
-        """
-        return self.user.username
+        return f"{self.username} ({self.email})"
 
 
 class Subscription(models.Model):
     """
     Модель подписки пользователя.
 
-    Атрибуты:
-        user: Пользователь, который подписан.
-        author: Автор, на которого подписан пользователь.
+    user   — подписчик (тот, кто подписывается).
+    author — автор, на которого подписываются.
     """
 
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='following'
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='following',
+        verbose_name="Подписчик"
     )
     author = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='followers'
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='followers',
+        verbose_name="Автор"
     )
 
     class Meta:
-        """
-        Метаданные для модели Subscription.
-
-        Определяет уникальность пары (user, author).
-        """
-
-        unique_together = ['user', 'author']
+        verbose_name = "Подписка"
+        verbose_name_plural = "Подписки"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'author'],
+                name='unique_user_author'
+            )
+        ]
 
     def __str__(self):
-        """
-        Возвращает строковое представление подписки.
-
-        Формат: "user подписан на author".
-        """
-        return f"{self.user.username} подписан на {self.author.username}"
+        return f"{self.user} подписан на {self.author}"

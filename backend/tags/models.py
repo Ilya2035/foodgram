@@ -1,10 +1,6 @@
-"""
-Модели для приложения Tags.
-
-Этот модуль содержит модель Tag для работы с тегами.
-"""
-
 from django.db import models
+
+from .constants import TAG_NAME_MAX_LENGTH, TAG_SLUG_MAX_LENGTH
 
 
 class Tag(models.Model):
@@ -16,8 +12,18 @@ class Tag(models.Model):
         slug: Уникальный слаг для тега.
     """
 
-    name = models.CharField(max_length=100, unique=True)
-    slug = models.SlugField(max_length=100, unique=True)
+    name = models.CharField(
+        max_length=TAG_NAME_MAX_LENGTH,
+        unique=True,
+        verbose_name="Название тега"
+    )
+    slug = models.SlugField(
+        max_length=TAG_SLUG_MAX_LENGTH,
+        unique=True,
+        blank=True,
+        null=True,
+        verbose_name="Слаг"
+    )
 
     def __str__(self):
         """Возвращает строковое представление тега."""
