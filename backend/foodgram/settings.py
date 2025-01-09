@@ -1,9 +1,3 @@
-"""
-Настройки проекта Foodgram.
-
-Этот модуль содержит базовые настройки Django для проекта Foodgram.
-"""
-
 import os
 from pathlib import Path
 
@@ -15,6 +9,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv()
 
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
+
+USED_DB = os.getenv('USED_DB', 'False') == 'True'
 
 SECRET_KEY = os.getenv('SECRET_KEY', get_random_secret_key())
 
@@ -67,7 +63,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'foodgram.wsgi.application'
 
-if DEBUG:
+if USED_DB:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -90,15 +86,8 @@ DJOSER = {
     'LOGIN_FIELD': 'email',
     'USER_CREATE_PASSWORD_RETYPE': True,
     'SERIALIZERS': {
-        'user_create': (
-            'users.serializers.CustomUserCreateSerializer'
-        ),
-        'user': (
-            'users.serializers.CustomUserSerializer'
-        ),
-        'current_user': (
-            'users.serializers.CustomUserSerializer'
-        ),
+        'user': 'users.serializers.CustomUserSerializer',
+        'current_user': 'users.serializers.CustomUserSerializer',
     },
 }
 

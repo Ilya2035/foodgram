@@ -1,9 +1,3 @@
-"""
-ASGI конфигурация для проекта Foodgram.
-
-Этот модуль содержит ASGI-приложение, используемое для развертывания проекта.
-"""
-
 import os
 from django.core.asgi import get_asgi_application
 

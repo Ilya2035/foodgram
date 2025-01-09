@@ -1,10 +1,5 @@
-"""
-Админка для приложения Ingredients.
-
-Этот модуль настраивает отображение модели Ingredient в интерфейсе админки.
-"""
-
 from django.contrib import admin
+
 from .models import Ingredient
 
 

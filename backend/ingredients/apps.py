@@ -1,9 +1,3 @@
-"""
-Конфигурация приложения Ingredients.
-
-Этот модуль задаёт конфигурацию для приложения Ingredients.
-"""
-
 from django.apps import AppConfig
 
 

@@ -1,9 +1,3 @@
-"""
-WSGI конфигурация для проекта Foodgram.
-
-Этот модуль содержит WSGI-приложение, используемое для развертывания проекта.
-"""
-
 import os
 from django.core.wsgi import get_wsgi_application
 
