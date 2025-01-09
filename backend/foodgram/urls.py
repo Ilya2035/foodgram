@@ -11,10 +11,7 @@ from django.contrib import admin
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('api.api_ingredients.urls')),
-    path('', include('api.api_recipes.urls')),
-    path('', include('api.api_tags.urls')),
-    path('', include('api.api_users.urls')),
+    path('', include('api.urls')),
 ]
 
 if settings.DEBUG:
