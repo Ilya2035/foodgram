@@ -175,7 +175,7 @@ class RecipeSimpleSerializer(serializers.ModelSerializer):
         fields = ('id', 'name', 'image', 'cooking_time')
 
 class UserListRetrieveSerializer(serializers.ModelSerializer):
-    """Отображение пользователя."""
+    """Сериализатор для отображения пользователя."""
     is_subscribed = serializers.SerializerMethodField()
     avatar = serializers.SerializerMethodField()
 
@@ -189,14 +189,13 @@ class UserListRetrieveSerializer(serializers.ModelSerializer):
 
     def get_is_subscribed(self, obj):
         request = self.context.get('request')
-        return bool(
-            request and request.user.is_authenticated and
-            Subscription.objects.filter(user=request.user, author=obj).exists()
-        )
+        if request and request.user.is_authenticated:
+            return Subscription.objects.filter(user=request.user, author=obj).exists()
+        return False
 
     def get_avatar(self, obj):
         request = self.context.get('request')
-        if request and obj.avatar:
+        if obj.avatar:
             return request.build_absolute_uri(obj.avatar.url)
         return None
 
@@ -211,7 +210,7 @@ class AvatarSerializer(serializers.ModelSerializer):
 
 
 class UserWithRecipesSerializer(UserListRetrieveSerializer):
-    """Отображение пользователя вместе с его рецептами."""
+    """Сериализатор пользователя с рецептами."""
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
 
@@ -222,18 +221,28 @@ class UserWithRecipesSerializer(UserListRetrieveSerializer):
 
     def get_recipes(self, obj):
         request = self.context.get('request')
-        qs = Recipe.objects.filter(author=obj)
-        limit_str = request.query_params.get('recipes_limit')
-        if limit_str:
+        recipes_limit = request.query_params.get('recipes_limit')
+        recipes = Recipe.objects.filter(author=obj)
+        if recipes_limit:
             try:
-                limit = int(limit_str)
-                qs = qs[:limit]
+                limit = int(recipes_limit)
+                recipes = recipes[:limit]
             except ValueError:
                 pass
-        return RecipeSimpleSerializer(qs, many=True).data
+        return RecipeSimpleSerializer(recipes, many=True).data
 
     def get_recipes_count(self, obj):
         return Recipe.objects.filter(author=obj).count()
+
+
+class AvatarSerializer(serializers.ModelSerializer):
+    """Сериализатор для изменения аватара пользователя."""
+    avatar = serializers.ImageField(required=False)
+
+    class Meta:
+        model = FoodgramUser
+        fields = ('avatar',)
+
 
 class SubscriptionCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -249,12 +258,10 @@ class SubscriptionCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Вы уже подписаны на этого пользователя.")
         return attrs
 
-class CustomUserCreateSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор для создания пользователя (регистрация).
-    Подключается к Djoser через 'user_create'.
-    """
-    password = serializers.CharField(write_only=True)
+class FoodgramUserCreateSerializer(serializers.ModelSerializer):
+    """Сериализатор для создания пользователя."""
+    password = serializers.CharField(write_only=True, required=True)
+    re_password = serializers.CharField(write_only=True, required=False)
 
     class Meta:
         model = FoodgramUser
@@ -265,27 +272,26 @@ class CustomUserCreateSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name',
             'password',
+            're_password',
         )
 
     def validate_password(self, value):
-        """
-        Прогоняем пароль через джанговские валидаторы (из settings.py).
-        """
-        try:
-            validate_password(value)
-        except ValidationError as e:
-            raise serializers.ValidationError({'password': list(e.messages)})
+        """Валидирует пароль."""
+        validate_password(value)
         return value
 
+    def validate(self, attrs):
+        """Проверяет совпадение паролей."""
+        password = attrs.get('password')
+        re_password = attrs.pop('re_password', None)
+
+        if re_password and password != re_password:
+            raise serializers.ValidationError({"re_password": "Пароли не совпадают."})
+
+        return attrs
+
     def create(self, validated_data):
-        """
-        При создании пользователя:
-        - Убираем пароль из validated_data
-        - set_password для хеширования
-        - сохраняем в БД
-        """
-        password = validated_data.pop('password')
-        user = FoodgramUser(**validated_data)
-        user.set_password(password)
-        user.save()
+        """Создаёт пользователя и профиль."""
+        re_password = validated_data.pop('re_password', None)
+        user = FoodgramUser.objects.create_user(**validated_data)
         return user

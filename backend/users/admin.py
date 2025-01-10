@@ -5,44 +5,26 @@ from .models import FoodgramUser, Subscription
 
 
 @admin.register(FoodgramUser)
-class CustomUserAdmin(UserAdmin):
-    """
-    Настройка интерфейса админки для модели CustomUser.
+class FoodgramUserAdmin(UserAdmin):
+    """Админ-панель для кастомной модели пользователя."""
 
-    Отображает данные пользователя (включая email, аватар),
-    с возможностью поиска и фильтрации.
-    """
-
-    list_display = (
-        'id', 'username', 'email', 'first_name', 'last_name', 'avatar'
-    )
-    search_fields = ('username', 'email')
-    list_filter = ('is_staff', 'is_superuser', 'is_active')
+    model = FoodgramUser
+    list_display = ('email', 'username', 'first_name', 'last_name', 'is_staff', 'is_active')
+    list_filter = ('is_staff', 'is_active', 'groups')
+    search_fields = ('email', 'username', 'first_name', 'last_name')
+    ordering = ('email',)
     fieldsets = (
-        (None, {
-            'fields': ('email', 'username', 'password')
-        }),
-        ("Персональная информация", {
-            'fields': ('first_name', 'last_name', 'avatar')
-        }),
-        ("Права доступа", {
-            'fields': ('is_active', 'is_staff', 'is_superuser',
-                       'groups', 'user_permissions')
-        }),
-        ("Даты", {
-            'fields': ('last_login', 'date_joined')
-        }),
+        (None, {'fields': ('email', 'password')}),
+        ('Личная информация', {'fields': ('username', 'first_name', 'last_name', 'avatar')}),
+        ('Права доступа', {'fields': ('is_staff', 'is_active', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Важная информация', {'fields': ('last_login', 'date_joined')}),
     )
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': (
-                'email', 'username', 'first_name', 'last_name',
-                'password1', 'password2', 'avatar'
-            ),
-        }),
+            'fields': ('email', 'username', 'first_name', 'last_name', 'password1', 'password2', 'is_staff', 'is_active')}
+        ),
     )
-    ordering = ('id',)
 
 
 @admin.register(Subscription)

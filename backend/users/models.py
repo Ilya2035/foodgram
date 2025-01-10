@@ -1,82 +1,101 @@
 from django.conf import settings
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    PermissionsMixin,
+    BaseUserManager
+)
 from django.db import models
-from django.core.validators import (
-    EmailValidator, RegexValidator, MaxLengthValidator
-)
-from django.utils.translation import gettext_lazy as _
 
-from .constants import (
-    USER_EMAIL_MAX_LENGTH,
-    USER_NAME_MAX_LENGTH,
-    USER_FIRST_NAME_MAX_LENGTH,
-    USER_LAST_NAME_MAX_LENGTH,
-)
 
-class FoodgramUser(AbstractUser):
-    """
-    Кастомная модель пользователя.
+class FoodgramUserManager(BaseUserManager):
+    """Менеджер для кастомной модели пользователя."""
 
-    - email используется в качестве USERNAME_FIELD (логин).
-    - username, first_name и last_name в REQUIRED_FIELDS
-      (требуется при создании суперпользователя).
-    - avatar хранит аватар пользователя.
-    """
+    def create_user(self, email, username, first_name, last_name, password=None, **extra_fields):
+        """Создаёт и сохраняет пользователя с указанными данными."""
+        if not email:
+            raise ValueError('Пользователь должен иметь email.')
+        if not username:
+            raise ValueError('Пользователь должен иметь username.')
+        if not first_name:
+            raise ValueError('Пользователь должен иметь имя.')
+        if not last_name:
+            raise ValueError('Пользователь должен иметь фамилию.')
+
+        email = self.normalize_email(email)
+        user = self.model(
+            email=email,
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            **extra_fields
+        )
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, username, first_name, last_name, password=None, **extra_fields):
+        """Создаёт и сохраняет суперпользователя с указанными данными."""
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Суперпользователь должен иметь is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Суперпользователь должен иметь is_superuser=True.')
+
+        return self.create_user(email, username, first_name, last_name, password, **extra_fields)
+
+class FoodgramUser(AbstractBaseUser, PermissionsMixin):
+    """Кастомная модель пользователя."""
 
     email = models.EmailField(
-        _('email address'),
-        max_length=USER_EMAIL_MAX_LENGTH,  # из констант
-        unique=True,
-        validators=[EmailValidator()],
-        help_text="Используется как логин для входа в систему"
+        verbose_name='Электронная почта',
+        max_length=255,
+        unique=True
     )
     username = models.CharField(
-        _('username'),
-        max_length=USER_NAME_MAX_LENGTH,
-        unique=True,
-        help_text=_(
-            "Обязательное. 150 символов или меньше. "
-            "Только буквы, цифры и @/./+/-/_."
-        ),
-        validators=[
-            RegexValidator(
-                r'^[\w.@+-]+\Z',
-                _("Введите корректный юзернейм.")
-            ),
-            MaxLengthValidator(USER_NAME_MAX_LENGTH)
-        ],
-        error_messages={
-            'unique': _("Пользователь с таким именем уже существует."),
-        },
+        verbose_name='Никнейм',
+        max_length=150,
+        unique=True
     )
     first_name = models.CharField(
-        _('first name'),
-        max_length=USER_FIRST_NAME_MAX_LENGTH,
-        blank=True
+        verbose_name='Имя',
+        max_length=30
     )
     last_name = models.CharField(
-        _('last name'),
-        max_length=USER_LAST_NAME_MAX_LENGTH,
+        verbose_name='Фамилия',
+        max_length=150
+    )
+    avatar = models.ImageField(
+        verbose_name='Аватар',
+        upload_to='avatars/',
+        null=True,
         blank=True
     )
-
-    avatar = models.ImageField(
-        _("Аватар"),
-        upload_to='avatars/',
-        blank=True,
-        null=True,
-        help_text="Загрузите изображение в одном из поддерживаемых форматов"
+    is_active = models.BooleanField(
+        verbose_name='Активен',
+        default=True
     )
+    is_staff = models.BooleanField(
+        verbose_name='Сотрудник',
+        default=False
+    )
+    date_joined = models.DateTimeField(
+        verbose_name='Дата регистрации',
+        auto_now_add=True
+    )
+
+    objects = FoodgramUserManager()
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
 
     class Meta:
-        verbose_name = "Пользователь"
-        verbose_name_plural = "Пользователи"
+        verbose_name = 'Пользователь'
+        verbose_name_plural = 'Пользователи'
 
     def __str__(self):
-        return f"{self.username} ({self.email})"
+        return self.email
 
 
 class Subscription(models.Model):

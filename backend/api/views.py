@@ -25,6 +25,7 @@ from .serializers import (
     AvatarSerializer,
     UserWithRecipesSerializer,
     SubscriptionCreateSerializer,
+    FoodgramUserCreateSerializer,
 )
 
 from ingredients.models import Ingredient
@@ -205,13 +206,9 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
 class FoodgramUserViewSet(DjoserUserViewSet):
     """
     Кастомный UserViewSet на базе Djoser.
-
-    - list, create, retrieve, delete, me, set_password и т.д. — уже встроены.
-    - Дополнительные методы:
-      1) avatar (PUT/DELETE),
-      2) subscriptions (GET),
-      3) subscribe/unsubscribe (POST/DELETE).
     """
+    queryset = FoodgramUser.objects.all()
+    serializer_class = UserListRetrieveSerializer
     pagination_class = PaginationForUser
 
     def get_permissions(self):
@@ -222,61 +219,57 @@ class FoodgramUserViewSet(DjoserUserViewSet):
     def get_serializer_class(self):
         if self.action in ('list', 'retrieve', 'me'):
             return UserListRetrieveSerializer
+        elif self.action == 'create':
+            return FoodgramUserCreateSerializer
         return super().get_serializer_class()
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def me(self, request): ###############
+        """Возвращает данные текущего пользователя."""
+        serializer = self.get_serializer(request.user)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAuthenticated])
+    def subscribe(self, request, pk=None):
+        """Подписка/отписка на пользователя."""
+        author = self.get_object()
+        user = request.user
+
+        if request.method == 'POST':
+            if user == author:
+                return Response({"detail": "Нельзя подписаться на самого себя."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            if Subscription.objects.filter(user=user, author=author).exists():
+                return Response({"detail": "Вы уже подписаны на этого пользователя."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            Subscription.objects.create(user=user, author=author)
+            serializer = UserWithRecipesSerializer(author, context={'request': request})
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        if request.method == 'DELETE':
+            subscription = Subscription.objects.filter(user=user, author=author)
+            if subscription.exists():
+                subscription.delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response({"detail": "Вы не подписаны на этого пользователя."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['put', 'delete'], permission_classes=[IsAuthenticated])
     def avatar(self, request):
+        """Обновление или удаление аватара пользователя."""
         user = request.user
         if request.method == 'PUT':
             serializer = AvatarSerializer(user, data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            avatar_url = (
-                request.build_absolute_uri(user.avatar.url)
-                if user.avatar
-                else None
-            )
+            avatar_url = request.build_absolute_uri(user.avatar.url) if user.avatar else None
             return Response({'avatar': avatar_url}, status=status.HTTP_200_OK)
 
         if request.method == 'DELETE':
             if user.avatar:
                 user.avatar.delete(save=False)
-            user.avatar = None
-            user.save(update_fields=['avatar'])
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
-
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
-    def subscriptions(self, request):
-        qs = FoodgramUser.objects.filter(followers__user=request.user)
-        page = self.paginate_queryset(qs)
-        if page is not None:
-            serializer = UserWithRecipesSerializer(page, many=True, context={'request': request})
-            return self.get_paginated_response(serializer.data)
-
-        serializer = UserWithRecipesSerializer(qs, many=True, context={'request': request})
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAuthenticated])
-    def subscribe(self, request, id=None):
-        author = self.get_object()
-        user = request.user
-
-        if request.method == 'POST':
-            data = {'user': user.id, 'author': author.id}
-            # Сериализатор, который проверяет "не подписывайся на себя", "уже подписан" и т.п.
-            serializer = SubscriptionCreateSerializer(data=data, context={'request': request})
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            out = UserWithRecipesSerializer(author, context={'request': request})
-            return Response(out.data, status=status.HTTP_201_CREATED)
-
-        if request.method == 'DELETE':
-            deleted_count, _ = Subscription.objects.filter(user=user, author=author).delete()
-            if deleted_count == 0:
-                return Response({"detail": "Вы не подписаны на этого пользователя."},
-                                status=status.HTTP_400_BAD_REQUEST)
-            return Response(status=status.HTTP_204_NO_CONTENT)
-
-        return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
+                user.avatar = None
+                user.save(update_fields=['avatar'])
+                return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response({"detail": "Аватар не установлен."},
+                            status=status.HTTP_400_BAD_REQUEST)
