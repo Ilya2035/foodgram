@@ -1,6 +1,7 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 
 from .fields import Base64ImageField
 from recipes.models import Recipe, RecipeIngredient, Favorite, ShoppingCart
@@ -27,11 +28,30 @@ class TagSerializer(serializers.ModelSerializer):
 
 class UserBriefSerializer(serializers.ModelSerializer):
     """Краткая информация о пользователе."""
+    is_subscribed = serializers.SerializerMethodField()
+    avatar = serializers.SerializerMethodField()
 
     class Meta:
         model = FoodgramUser
-        fields = ('id', 'email', 'username', 'first_name', 'last_name')
+        fields = (
+            'email', 'id', 'username', 'first_name',
+            'last_name', 'is_subscribed', 'avatar'
+        )
 
+    def get_is_subscribed(self, obj):
+        """Проверяет, подписан ли текущий пользователь на данного автора."""
+        request = self.context.get('request')
+        user = request.user if request else None
+        if user and user.is_authenticated:
+            return Subscription.objects.filter(user=user, author=obj).exists()
+        return False
+
+    def get_avatar(self, obj):
+        """Возвращает URL аватара автора, если он есть."""
+        request = self.context.get('request')
+        if obj.avatar:
+            return request.build_absolute_uri(obj.avatar.url)
+        return None
 
 class IngredientInRecipeReadSerializer(serializers.ModelSerializer):
     """Чтение ингредиентов в рецепте."""
@@ -97,7 +117,6 @@ class RecipeReadSerializer(serializers.ModelSerializer):
             ShoppingCart.objects.filter(user=user, recipe=obj).exists()
         )
 
-
 class RecipeWriteSerializer(serializers.ModelSerializer):
     """Создание и обновление рецептов."""
     tags = serializers.PrimaryKeyRelatedField(
@@ -119,18 +138,31 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         )
 
     def to_representation(self, instance):
+        """Возвращает данные через `RecipeReadSerializer`."""
         return RecipeReadSerializer(instance, context=self.context).data
 
     def validate(self, attrs):
-        tags = attrs.get('tags', [])
+        tags = attrs.get('tags')
+        if not tags:
+            raise serializers.ValidationError({
+                'tags': 'Это поле не может быть пустым.'
+            })
+
+        ingredients = attrs.get('recipe_ingredients')
+        if not ingredients:
+            raise serializers.ValidationError({
+                'ingredients': 'Это поле не может быть пустым.'
+            })
+
+        # Проверка уникальности тегов
         if len(tags) != len(set(tags)):
             raise serializers.ValidationError({
                 'tags': 'Теги не должны повторяться.'
             })
 
-        ings = attrs.get('recipe_ingredients', [])
-        ing_ids = [item['ingredient'].id for item in ings]
-        if len(ing_ids) != len(set(ing_ids)):
+        # Проверка уникальности ингредиентов
+        ingredient_ids = [item['ingredient'].id for item in ingredients]
+        if len(ingredient_ids) != len(set(ingredient_ids)):
             raise serializers.ValidationError({
                 'ingredients': 'Ингредиенты не должны повторяться.'
             })
@@ -149,21 +181,21 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         tags = validated_data.pop('tags')
-        ings = validated_data.pop('recipe_ingredients', [])
+        ingredients = validated_data.pop('recipe_ingredients')
         recipe = super().create(validated_data)
         recipe.tags.set(tags)
-        self.create_ingredients(recipe, ings)
+        self.create_ingredients(recipe, ingredients)
         return recipe
 
     def update(self, instance, validated_data):
         tags = validated_data.pop('tags', None)
-        ings = validated_data.pop('recipe_ingredients', None)
+        ingredients = validated_data.pop('recipe_ingredients', None)
         instance = super().update(instance, validated_data)
         if tags is not None:
             instance.tags.set(tags)
-        if ings is not None:
+        if ingredients is not None:
             instance.recipe_ingredients.all().delete()
-            self.create_ingredients(instance, ings)
+            self.create_ingredients(instance, ingredients)
         return instance
 
 class RecipeSimpleSerializer(serializers.ModelSerializer):
@@ -210,7 +242,7 @@ class AvatarSerializer(serializers.ModelSerializer):
 
 
 class UserWithRecipesSerializer(UserListRetrieveSerializer):
-    """Сериализатор пользователя с рецептами."""
+    """Сериализатор пользователя с его рецептами."""
     recipes = serializers.SerializerMethodField()
     recipes_count = serializers.SerializerMethodField()
 
@@ -222,6 +254,7 @@ class UserWithRecipesSerializer(UserListRetrieveSerializer):
     def get_recipes(self, obj):
         request = self.context.get('request')
         recipes_limit = request.query_params.get('recipes_limit')
+        print(f"DEBUG: recipes_limit={recipes_limit}")
         recipes = Recipe.objects.filter(author=obj)
         if recipes_limit:
             try:
@@ -232,16 +265,8 @@ class UserWithRecipesSerializer(UserListRetrieveSerializer):
         return RecipeSimpleSerializer(recipes, many=True).data
 
     def get_recipes_count(self, obj):
+        """Возвращает общее количество рецептов пользователя."""
         return Recipe.objects.filter(author=obj).count()
-
-
-class AvatarSerializer(serializers.ModelSerializer):
-    """Сериализатор для изменения аватара пользователя."""
-    avatar = serializers.ImageField(required=False)
-
-    class Meta:
-        model = FoodgramUser
-        fields = ('avatar',)
 
 
 class SubscriptionCreateSerializer(serializers.ModelSerializer):
@@ -261,7 +286,39 @@ class SubscriptionCreateSerializer(serializers.ModelSerializer):
 class FoodgramUserCreateSerializer(serializers.ModelSerializer):
     """Сериализатор для создания пользователя."""
     password = serializers.CharField(write_only=True, required=True)
-    re_password = serializers.CharField(write_only=True, required=False)
+    username = serializers.CharField(
+        max_length=150,
+        required=True,
+        validators=[
+            RegexValidator(
+                regex=r'^[\w.@+-]+\Z',
+                message='Никнейм может содержать только буквы, цифры и символы @ . + - _',
+                code='invalid_username'
+            ),
+            UniqueValidator(
+                queryset=FoodgramUser.objects.all(),
+                message='Пользователь с таким никнеймом уже существует.'
+            )
+        ]
+    )
+    email = serializers.EmailField(
+        max_length=254,
+        required=True,
+        validators=[
+            UniqueValidator(
+                queryset=FoodgramUser.objects.all(),
+                message='Пользователь с таким email уже существует.'
+            )
+        ]
+    )
+    first_name = serializers.CharField(
+        max_length=150,
+        required=True
+    )
+    last_name = serializers.CharField(
+        max_length=150,
+        required=True
+    )
 
     class Meta:
         model = FoodgramUser
@@ -272,26 +329,23 @@ class FoodgramUserCreateSerializer(serializers.ModelSerializer):
             'first_name',
             'last_name',
             'password',
-            're_password',
         )
+        extra_kwargs = {
+            'password': {'write_only': True},
+        }
 
     def validate_password(self, value):
         """Валидирует пароль."""
         validate_password(value)
         return value
 
-    def validate(self, attrs):
-        """Проверяет совпадение паролей."""
-        password = attrs.get('password')
-        re_password = attrs.pop('re_password', None)
-
-        if re_password and password != re_password:
-            raise serializers.ValidationError({"re_password": "Пароли не совпадают."})
-
-        return attrs
-
     def create(self, validated_data):
-        """Создаёт пользователя и профиль."""
-        re_password = validated_data.pop('re_password', None)
-        user = FoodgramUser.objects.create_user(**validated_data)
+        """Создаёт пользователя."""
+        user = FoodgramUser.objects.create_user(
+            email=validated_data['email'],
+            username=validated_data['username'],
+            first_name=validated_data['first_name'],
+            last_name=validated_data['last_name'],
+            password=validated_data['password']
+        )
         return user

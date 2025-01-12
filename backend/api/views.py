@@ -11,6 +11,7 @@ from rest_framework.permissions import (
 )
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import NotFound
 
 from .permissions import IsAuthorOrReadOnly
 from .pagination import PaginationForUser
@@ -91,18 +92,17 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
 
-    @action(detail=True, methods=['GET'], permission_classes=[AllowAny])
+    @action(detail=True, methods=['get'],url_path='get-link', permission_classes=[AllowAny])
     def get_link(self, request, pk=None):
-        """
-        Допустим, для получения короткой ссылки на рецепт,
-        если в модели Recipe есть поле short_slug.
-        """
+        """Возвращает короткую ссылку на рецепт."""
         recipe = self.get_object()
-        short_slug = getattr(recipe, 'short_slug', None)
-        short_link = request.build_absolute_uri(
-            f'/s/{short_slug}/') if short_slug else None
-        return Response(
-            {"short-link": short_link}, status=status.HTTP_200_OK)
+        if not recipe.short_link:
+            return Response(
+                {"detail": "Короткая ссылка не найдена."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        short_link = request.build_absolute_uri(f"/s/{recipe.short_link}/")
+        return Response({"short-link": short_link}, status=status.HTTP_200_OK)
 
     @action(
         detail=False, methods=['GET'], permission_classes=[IsAuthenticated])
@@ -207,13 +207,16 @@ class FoodgramUserViewSet(DjoserUserViewSet):
     """
     Кастомный UserViewSet на базе Djoser.
     """
+
     queryset = FoodgramUser.objects.all()
     serializer_class = UserListRetrieveSerializer
     pagination_class = PaginationForUser
 
     def get_permissions(self):
-        if self.action in ('list', 'retrieve', 'me'):
+        if self.action in ('list', 'retrieve'):
             return [AllowAny()]
+        elif self.action == 'me':
+            return [IsAuthenticated()]
         return super().get_permissions()
 
     def get_serializer_class(self):
@@ -223,26 +226,21 @@ class FoodgramUserViewSet(DjoserUserViewSet):
             return FoodgramUserCreateSerializer
         return super().get_serializer_class()
 
-    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
-    def me(self, request): ###############
-        """Возвращает данные текущего пользователя."""
-        serializer = self.get_serializer(request.user)
-        return Response(serializer.data)
-
-    @action(detail=True, methods=['post', 'delete'], permission_classes=[IsAuthenticated])
-    def subscribe(self, request, pk=None):
+    @action(detail=True, methods=['post', 'delete'], url_path='subscribe', permission_classes=[IsAuthenticated])
+    def subscribe(self, request, id=None):
         """Подписка/отписка на пользователя."""
         author = self.get_object()
         user = request.user
 
+        if user == author:
+            return Response({"detail": "Нельзя подписаться на самого себя."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
         if request.method == 'POST':
-            if user == author:
-                return Response({"detail": "Нельзя подписаться на самого себя."},
-                                status=status.HTTP_400_BAD_REQUEST)
-            if Subscription.objects.filter(user=user, author=author).exists():
+            subscription, created = Subscription.objects.get_or_create(user=user, author=author)
+            if not created:
                 return Response({"detail": "Вы уже подписаны на этого пользователя."},
                                 status=status.HTTP_400_BAD_REQUEST)
-            Subscription.objects.create(user=user, author=author)
             serializer = UserWithRecipesSerializer(author, context={'request': request})
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -254,22 +252,53 @@ class FoodgramUserViewSet(DjoserUserViewSet):
             return Response({"detail": "Вы не подписаны на этого пользователя."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['put', 'delete'], permission_classes=[IsAuthenticated])
+    @action(detail=False, methods=['get'], url_path='subscriptions',
+            permission_classes=[IsAuthenticated])
+    def subscriptions(self, request):
+        """Получение списка подписок текущего пользователя."""
+        user = request.user
+        subscriptions = Subscription.objects.filter(user=user).select_related(
+            'author')
+
+        # Пагинация
+        page = self.paginate_queryset(subscriptions)
+        if page is not None:
+            serializer = UserWithRecipesSerializer(
+                [subscription.author for subscription in page],
+                many=True,
+                context={'request': request}
+            )
+            return self.get_paginated_response(serializer.data)
+
+        serializer = UserWithRecipesSerializer(
+            [subscription.author for subscription in subscriptions],
+            many=True,
+            context={'request': request}
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['put', 'delete'], url_path='me/avatar',
+            permission_classes=[IsAuthenticated])
     def avatar(self, request):
         """Обновление или удаление аватара пользователя."""
         user = request.user
+
         if request.method == 'PUT':
-            serializer = AvatarSerializer(user, data=request.data)
+            serializer = AvatarSerializer(instance=user, data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            avatar_url = request.build_absolute_uri(user.avatar.url) if user.avatar else None
+            avatar_url = (
+                request.build_absolute_uri(user.avatar.url)
+                if user.avatar else None
+            )
             return Response({'avatar': avatar_url}, status=status.HTTP_200_OK)
 
-        if request.method == 'DELETE':
+        elif request.method == 'DELETE':
             if user.avatar:
                 user.avatar.delete(save=False)
                 user.avatar = None
                 user.save(update_fields=['avatar'])
                 return Response(status=status.HTTP_204_NO_CONTENT)
+
             return Response({"detail": "Аватар не установлен."},
                             status=status.HTTP_400_BAD_REQUEST)

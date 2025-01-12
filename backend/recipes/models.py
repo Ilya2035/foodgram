@@ -1,3 +1,6 @@
+import random
+import string
+
 from django.db import models
 from django.conf import settings
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -55,6 +58,31 @@ class Recipe(models.Model):
         related_name='recipes',
         verbose_name="Ингредиенты"
     )
+    short_link = models.CharField(
+        max_length=10,
+        unique=True,
+        null=True,
+        blank=True
+    )
+
+    def get_absolute_url(self):
+        """Возвращает абсолютный URL для рецепта."""
+        return f"/recipes/{self.id}/"
+
+    def generate_short_url(self):
+        """Генерирует уникальную короткую ссылку."""
+        while True:
+            short_url = ''.join(
+                random.choices(string.ascii_letters + string.digits, k=6))
+            if not Recipe.objects.filter(
+                    short_link=short_url).exists():
+                return short_url
+
+    def save(self, *args, **kwargs):
+        """Добавляет генерацию короткой ссылки при создании объекта."""
+        if not self.short_link:
+            self.short_link = self.generate_short_url()
+        super().save(*args, **kwargs)
 
     class Meta:
         """Метаданные для модели Recipe."""
