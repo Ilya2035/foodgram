@@ -86,6 +86,7 @@ class Recipe(models.Model):
 
     class Meta:
         """Метаданные для модели Recipe."""
+
         ordering = ['name']
         verbose_name = "Рецепт"
         verbose_name_plural = "Рецепты"
@@ -129,6 +130,7 @@ class RecipeIngredient(models.Model):
 
     class Meta:
         """Метаданные для модели RecipeIngredient."""
+
         verbose_name = "Ингредиент в рецепте"
         verbose_name_plural = "Ингредиенты в рецептах"
         constraints = [
@@ -144,9 +146,7 @@ class RecipeIngredient(models.Model):
 
 
 class UserRecipeBase(models.Model):
-    """
-    Абстрактная модель, хранящая связь пользователя и рецепта.
-    """
+    """Абстрактная модель, хранящая связь пользователя и рецепта."""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -160,9 +160,12 @@ class UserRecipeBase(models.Model):
     )
 
     class Meta:
+        """Метаданные для модели UserRecipeBase."""
+
         abstract = True
 
     def __str__(self):
+        """Возвращает строковое представление ингредиента в рецепте."""
         return f"{self.user.username} — «{self.recipe.name}»"
 
 
@@ -174,6 +177,8 @@ class ShoppingCart(UserRecipeBase):
     """
 
     class Meta:
+        """Метаданные для модели ShoppingCart."""
+
         verbose_name = "Список покупок"
         verbose_name_plural = "Списки покупок"
         constraints = [
@@ -192,6 +197,8 @@ class Favorite(UserRecipeBase):
     """
 
     class Meta:
+        """Метаданные для модели Favorite."""
+
         verbose_name = "Избранное"
         verbose_name_plural = "Избранное"
         constraints = [

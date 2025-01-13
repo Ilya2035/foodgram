@@ -5,6 +5,7 @@ from .constants import (
     INGREDIENT_MEASUREMENT_UNIT_MAX_LENGTH,
 )
 
+
 class Ingredient(models.Model):
     """
     Модель для хранения информации об ингредиентах.
@@ -22,6 +23,8 @@ class Ingredient(models.Model):
     )
 
     class Meta:
+        """Метаданные для модели ингредиентов."""
+
         verbose_name = "Ингредиент"
         verbose_name_plural = "Ингредиенты"
 
@@ -35,7 +38,5 @@ class Ingredient(models.Model):
         ]
 
     def __str__(self):
-        """
-        Возвращаем более понятное строковое представление.
-        """
+        """Возвращаем более понятное строковое представление."""
         return f"{self.name} ({self.measurement_unit})"

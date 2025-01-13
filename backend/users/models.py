@@ -10,7 +10,15 @@ from django.db import models
 class FoodgramUserManager(BaseUserManager):
     """Менеджер для кастомной модели пользователя."""
 
-    def create_user(self, email, username, first_name, last_name, password=None, **extra_fields):
+    def create_user(
+        self,
+        email,
+        username,
+        first_name,
+        last_name,
+        password=None,
+        **extra_fields
+    ):
         """Создаёт и сохраняет пользователя с указанными данными."""
         if not email:
             raise ValueError('Пользователь должен иметь email.')
@@ -33,7 +41,15 @@ class FoodgramUserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, username, first_name, last_name, password=None, **extra_fields):
+    def create_superuser(
+        self,
+        email,
+        username,
+        first_name,
+        last_name,
+        password=None,
+        **extra_fields
+    ):
         """Создаёт и сохраняет суперпользователя с указанными данными."""
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
@@ -41,9 +57,18 @@ class FoodgramUserManager(BaseUserManager):
         if extra_fields.get('is_staff') is not True:
             raise ValueError('Суперпользователь должен иметь is_staff=True.')
         if extra_fields.get('is_superuser') is not True:
-            raise ValueError('Суперпользователь должен иметь is_superuser=True.')
+            raise ValueError(
+                'Суперпользователь должен иметь is_superuser=True.')
 
-        return self.create_user(email, username, first_name, last_name, password, **extra_fields)
+        return self.create_user(
+            email,
+            username,
+            first_name,
+            last_name,
+            password,
+            **extra_fields
+        )
+
 
 class FoodgramUser(AbstractBaseUser, PermissionsMixin):
     """Кастомная модель пользователя."""
@@ -91,10 +116,13 @@ class FoodgramUser(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']
 
     class Meta:
+        """Мета класс для модели FoodgramUser."""
+
         verbose_name = 'Пользователь'
         verbose_name_plural = 'Пользователи'
 
     def __str__(self):
+        """Возвращает строковое представление пользователя."""
         return self.email
 
 
@@ -120,6 +148,8 @@ class Subscription(models.Model):
     )
 
     class Meta:
+        """Мета класс для модели Subscription."""
+
         verbose_name = "Подписка"
         verbose_name_plural = "Подписки"
         constraints = [
@@ -130,4 +160,5 @@ class Subscription(models.Model):
         ]
 
     def __str__(self):
+        """Возвращает строковое представление подписки."""
         return f"{self.user} подписан на {self.author}"

@@ -2,6 +2,7 @@ from rest_framework.pagination import PageNumberPagination
 
 from .constants import PAGE_SIZE_USERS
 
+
 class PaginationForUser(PageNumberPagination):
     """
     Пагинация для пользователей.

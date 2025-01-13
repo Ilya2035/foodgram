@@ -84,7 +84,7 @@ else:
 
 DJOSER = {
     'LOGIN_FIELD': 'email',
-    'USER_CREATE_PASSWORD_RETYPE':False,
+    'USER_CREATE_PASSWORD_RETYPE': False,
     'SERIALIZERS': {
         'user_create': 'api.serializers.FoodgramUserCreateSerializer',
         'user': 'api.serializers.UserListRetrieveSerializer',
