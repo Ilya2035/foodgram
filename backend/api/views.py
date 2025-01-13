@@ -67,24 +67,31 @@ class RecipeViewSet(viewsets.ModelViewSet):
         qs = super().get_queryset()
         user = self.request.user
 
+        # Фильтрация по тегам
+        tags = self.request.query_params.getlist('tags')
+        if tags:
+            qs = qs.filter(tags__slug__in=tags).distinct()
+
+        # Фильтрация по избранному
         is_favorited = self.request.query_params.get('is_favorited')
         if is_favorited == '1' and user.is_authenticated:
             qs = qs.filter(
-                Exists(Favorite.objects.filter(
-                    user=user, recipe=OuterRef('id')))
+                Exists(
+                    Favorite.objects.filter(user=user, recipe=OuterRef('id')))
             )
 
+        # Фильтрация по списку покупок
         is_in_shopping_cart = self.request.query_params.get(
             'is_in_shopping_cart')
         if is_in_shopping_cart == '1' and user.is_authenticated:
             qs = qs.filter(
-                Exists(ShoppingCart.objects.filter(
-                    user=user, recipe=OuterRef('id')))
+                Exists(ShoppingCart.objects.filter(user=user,
+                                                   recipe=OuterRef('id')))
             )
         elif is_in_shopping_cart == '0' and user.is_authenticated:
             qs = qs.exclude(
-                Exists(ShoppingCart.objects.filter(
-                    user=user, recipe=OuterRef('id')))
+                Exists(ShoppingCart.objects.filter(user=user,
+                                                   recipe=OuterRef('id')))
             )
 
         return qs
