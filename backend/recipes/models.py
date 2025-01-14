@@ -73,10 +73,6 @@ class Recipe(models.Model):
         blank=True
     )
 
-    def get_absolute_url(self):
-        """Возвращает абсолютный URL для рецепта."""
-        return f"/recipes/{self.id}/"
-
     def generate_short_url(self):
         """Генерирует уникальную короткую ссылку."""
         while True:
@@ -143,7 +139,7 @@ class RecipeIngredient(models.Model):
         verbose_name_plural = "Ингредиенты в рецептах"
         constraints = [
             models.UniqueConstraint(
-                fields=['recipe', 'ingredient'],
+                fields=('recipe', 'ingredient'),
                 name='unique_recipe_ingredient'
             )
         ]
@@ -191,7 +187,7 @@ class ShoppingCart(UserRecipeBase):
         verbose_name_plural = "Списки покупок"
         constraints = [
             models.UniqueConstraint(
-                fields=['user', 'recipe'],
+                fields=('user', 'recipe'),
                 name='unique_shopping_cart_user_recipe'
             )
         ]
@@ -211,7 +207,7 @@ class Favorite(UserRecipeBase):
         verbose_name_plural = "Избранное"
         constraints = [
             models.UniqueConstraint(
-                fields=['user', 'recipe'],
+                fields=('user', 'recipe'),
                 name='unique_favorite_user_recipe'
             )
         ]
