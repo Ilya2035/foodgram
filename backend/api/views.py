@@ -297,31 +297,30 @@ class FoodgramUserViewSet(DjoserUserViewSet):
 
     @action(
         detail=False,
-        methods=['put', 'delete'],
+        methods=['put'],
         url_path='me/avatar',
         permission_classes=[IsAuthenticated]
     )
-    def avatar(self, request):
-        """Обновление или удаление аватара пользователя."""
+    def avatar_update(self, request):
+        """Обновление аватара пользователя."""
         user = request.user
+        serializer = AvatarSerializer(instance=user, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        avatar_url = request.build_absolute_uri(
+            user.avatar.url) if user.avatar else None
+        return Response({'avatar': avatar_url}, status=status.HTTP_200_OK)
 
-        if request.method == 'PUT':
-            serializer = AvatarSerializer(instance=user, data=request.data)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            avatar_url = request.build_absolute_uri(
-                user.avatar.url) if user.avatar else None
-            return Response({'avatar': avatar_url},
-                            status=status.HTTP_200_OK)
-
-        elif request.method == 'DELETE':
-            if user.avatar:
-                user.avatar.delete(save=False)
-                user.avatar = None
-                user.save(update_fields=['avatar'])
-                return Response(status=status.HTTP_204_NO_CONTENT)
-
+    @avatar_update.mapping.delete
+    def avatar_delete(self, request):
+        """Удаление аватара пользователя."""
+        user = request.user
+        if not user.avatar:
             return Response(
                 {"detail": "Аватар не установлен."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        user.avatar.delete(save=False)  # Удаляем файл
+        user.avatar = None
+        user.save(update_fields=['avatar'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
