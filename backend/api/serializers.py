@@ -9,9 +9,6 @@ from ingredients.models import Ingredient
 from users.models import FoodgramUser, Subscription
 
 
-FoodgramUser = get_user_model()
-
-
 class IngredientSerializer(serializers.ModelSerializer):
     """Сериализатор для модели Ingredient."""
 
