@@ -22,7 +22,7 @@ class RecipeFilter(django_filters.FilterSet):
         """Мета-класс для модели Recipe."""
 
         model = Recipe
-        fields = ['tags', 'author', 'is_favorited', 'is_in_shopping_cart']
+        fields = ('tags', 'author', 'is_favorited', 'is_in_shopping_cart')
 
     def filter_tags(self, queryset, name, value):
         """Фильтрует рецепты по тегам через slug."""

@@ -1,105 +1,46 @@
 from django.conf import settings
-from django.contrib.auth.models import (
-    AbstractBaseUser,
-    PermissionsMixin,
-    BaseUserManager
-)
+from django.core.validators import RegexValidator
 from django.db import models
+from django.contrib.auth.models import AbstractUser
 
+from .constants import (
+    USER_USERNAME_MAX_LENGTH,
+    USER_FIRST_NAME_MAX_LENGTH,
+    USER_LAST_NAME_MAX_LENGTH
+)
 
-class FoodgramUserManager(BaseUserManager):
-    """Менеджер для кастомной модели пользователя."""
-
-    def create_user(
-        self,
-        email,
-        username,
-        first_name,
-        last_name,
-        password=None,
-        **extra_fields
-    ):
-        """Создаёт и сохраняет пользователя с указанными данными."""
-        if not email:
-            raise ValueError('Пользователь должен иметь email.')
-        if not username:
-            raise ValueError('Пользователь должен иметь username.')
-        if not first_name:
-            raise ValueError('Пользователь должен иметь имя.')
-        if not last_name:
-            raise ValueError('Пользователь должен иметь фамилию.')
-
-        email = self.normalize_email(email)
-        user = self.model(
-            email=email,
-            username=username,
-            first_name=first_name,
-            last_name=last_name,
-            **extra_fields
-        )
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_superuser(
-        self,
-        email,
-        username,
-        first_name,
-        last_name,
-        password=None,
-        **extra_fields
-    ):
-        """Создаёт и сохраняет суперпользователя с указанными данными."""
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-
-        if extra_fields.get('is_staff') is not True:
-            raise ValueError('Суперпользователь должен иметь is_staff=True.')
-        if extra_fields.get('is_superuser') is not True:
-            raise ValueError(
-                'Суперпользователь должен иметь is_superuser=True.')
-
-        return self.create_user(
-            email,
-            username,
-            first_name,
-            last_name,
-            password,
-            **extra_fields
-        )
-
-
-class FoodgramUser(AbstractBaseUser, PermissionsMixin):
+class FoodgramUser(AbstractUser):
     """Кастомная модель пользователя."""
 
     email = models.EmailField(
         verbose_name='Электронная почта',
-        max_length=255,
         unique=True
     )
     username = models.CharField(
         verbose_name='Никнейм',
-        max_length=150,
-        unique=True
+        max_length=USER_USERNAME_MAX_LENGTH,
+        unique=True,
+        validators=[
+            RegexValidator(
+                regex=r'^[\w.@+-]+\Z',
+                message='Никнейм может содержать только'
+                        ' буквы, цифры и символы @ . + - _'
+            )
+        ]
     )
     first_name = models.CharField(
         verbose_name='Имя',
-        max_length=30
+        max_length=USER_FIRST_NAME_MAX_LENGTH
     )
     last_name = models.CharField(
         verbose_name='Фамилия',
-        max_length=150
+        max_length=USER_LAST_NAME_MAX_LENGTH
     )
     avatar = models.ImageField(
         verbose_name='Аватар',
         upload_to='avatars/',
         null=True,
         blank=True
-    )
-    is_active = models.BooleanField(
-        verbose_name='Активен',
-        default=True
     )
     is_staff = models.BooleanField(
         verbose_name='Сотрудник',
@@ -109,8 +50,6 @@ class FoodgramUser(AbstractBaseUser, PermissionsMixin):
         verbose_name='Дата регистрации',
         auto_now_add=True
     )
-
-    objects = FoodgramUserManager()
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name']

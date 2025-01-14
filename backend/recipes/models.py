@@ -7,6 +7,14 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 
 from tags.models import Tag
 from ingredients.models import Ingredient
+from .constants import (
+    RECIPES_NAME_MAX_LENGTH,
+    RECIPES_MIN_COOKING_TIME,
+    RECIPES_MAX_COOKING_TIME,
+    RECIPES_SHORT_LINK_MAX_LENGT,
+    RECIPES_MIN_INGREDIENTS,
+    RECIPES_MAX_INGREDIENTS,
+)
 
 
 class Recipe(models.Model):
@@ -18,7 +26,7 @@ class Recipe(models.Model):
     """
 
     name = models.CharField(
-        max_length=256,
+        max_length=RECIPES_NAME_MAX_LENGTH,
         verbose_name="Название рецепта"
     )
     text = models.TextField(
@@ -28,11 +36,11 @@ class Recipe(models.Model):
         verbose_name="Время приготовления (в минутах)",
         validators=[
             MinValueValidator(
-                1,
+                RECIPES_MIN_COOKING_TIME,
                 message="Время приготовления не может быть меньше 1 минуты."
             ),
             MaxValueValidator(
-                32000,
+                RECIPES_MAX_COOKING_TIME,
                 message="Время приготовления не может превышать 32000 минут."
             )
         ]
@@ -59,7 +67,7 @@ class Recipe(models.Model):
         verbose_name="Ингредиенты"
     )
     short_link = models.CharField(
-        max_length=10,
+        max_length=RECIPES_SHORT_LINK_MAX_LENGT,
         unique=True,
         null=True,
         blank=True
@@ -118,11 +126,11 @@ class RecipeIngredient(models.Model):
         verbose_name="Количество ингредиента",
         validators=[
             MinValueValidator(
-                1,
+                RECIPES_MIN_INGREDIENTS,
                 message="Количество не может быть меньше 1."
             ),
             MaxValueValidator(
-                32000,
+                RECIPES_MAX_INGREDIENTS,
                 message="Количество не может превышать 32000."
             )
         ]
