@@ -23,8 +23,10 @@ from .serializers import (
     TagSerializer,
     AvatarSerializer,
     UserWithRecipesSerializer,
-    FoodgramUserSerializer,
-    UserBriefSerializer, FavoriteSerializer, ShoppingCartSerializer
+    UserBriefSerializer,
+    FavoriteSerializer,
+    ShoppingCartSerializer,
+    SubscriptionSerializer
 )
 from ingredients.models import Ingredient
 from recipes.models import Recipe, ShoppingCart, Favorite
@@ -240,54 +242,39 @@ class FoodgramUserViewSet(DjoserUserViewSet):
     )
     def me(self, request, *args, **kwargs):
         """Ограничивает методы эндпоинта me."""
-        if request.method == 'GET':
-            return super().me(request, *args, **kwargs)
-        return Response(
-            {'detail': 'Method not allowed.'},
-            status=status.HTTP_405_METHOD_NOT_ALLOWED
-        )
+        return super().me(request, *args, **kwargs)
 
     @action(
         detail=True,
-        methods=['post', 'delete'],
+        methods=['post'],
         url_path='subscribe',
         permission_classes=[IsAuthenticated]
     )
     def subscribe(self, request, id=None):
-        """Подписка/отписка на пользователя."""
+        """Подписка на пользователя."""
         author = self.get_object()
         user = request.user
+        serializer = SubscriptionSerializer(
+            data={'author': author.id},
+            context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        subscription = serializer.save()
+        serialized_author = serializer.to_representation(subscription)
+        return Response(serialized_author, status=status.HTTP_201_CREATED)
 
-        if user == author:
-            return Response(
-                {"detail": "Нельзя подписаться на самого себя."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if request.method == 'POST':
-            subscription, created = Subscription.objects.get_or_create(
-                user=user, author=author)
-            if not created:
-                return Response(
-                    {"detail": "Вы уже подписаны на этого пользователя."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            serializer = UserWithRecipesSerializer(
-                author,
-                context={'request': request}
-            )
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-        if request.method == 'DELETE':
-            subscription = Subscription.objects.filter(
-                user=user, author=author)
-            if subscription.exists():
-                subscription.delete()
-                return Response(status=status.HTTP_204_NO_CONTENT)
-            return Response(
-                {"detail": "Вы не подписаны на этого пользователя."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+    @subscribe.mapping.delete
+    def unsubscribe(self, request, id=None):
+        """Отписка от пользователя."""
+        author = self.get_object()
+        user = request.user
+        deleted_count, _ = Subscription.objects.filter(user=user, author=author).delete()
+        if deleted_count:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(
+            {"detail": "Вы не подписаны на этого пользователя."},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
     @action(
         detail=False,
@@ -298,25 +285,15 @@ class FoodgramUserViewSet(DjoserUserViewSet):
     def subscriptions(self, request):
         """Получение списка подписок текущего пользователя."""
         user = request.user
-        subscriptions = Subscription.objects.filter(
-            user=user).select_related('author')
-
-        # Пагинация
+        subscriptions = Subscription.objects.filter(user=user).select_related(
+            'author')
         page = self.paginate_queryset(subscriptions)
-        if page is not None:
-            serializer = UserWithRecipesSerializer(
-                [subscription.author for subscription in page],
-                many=True,
-                context={'request': request}
-            )
-            return self.get_paginated_response(serializer.data)
-
         serializer = UserWithRecipesSerializer(
-            [subscription.author for subscription in subscriptions],
+            [subscription.author for subscription in page],
             many=True,
             context={'request': request}
         )
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return self.get_paginated_response(serializer.data)
 
     @action(
         detail=False,

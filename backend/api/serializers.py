@@ -350,3 +350,35 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         """Возвращает данные через `RecipeSimpleSerializer`."""
         return RecipeSimpleSerializer(instance.recipe, context=self.context).data
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(
+        default=serializers.CurrentUserDefault()
+    )
+    author = serializers.PrimaryKeyRelatedField(
+        queryset=FoodgramUser.objects.all()
+    )
+
+    class Meta:
+        model = Subscription
+        fields = ['user', 'author']
+
+    def validate(self, data):
+        user = data.get('user')
+        author = data.get('author')
+
+        if user == author:
+            raise serializers.ValidationError("Нельзя подписаться на самого себя.")
+
+        if Subscription.objects.filter(user=user, author=author).exists():
+            raise serializers.ValidationError("Вы уже подписаны на этого пользователя.")
+
+        return data
+
+    def to_representation(self, instance):
+        # Возвращаем данные автора с использованием UserWithRecipesSerializer
+        return UserWithRecipesSerializer(
+            instance.author,
+            context={'request': self.context.get('request')}
+        ).data
