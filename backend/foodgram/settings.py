@@ -86,8 +86,8 @@ DJOSER = {
     'LOGIN_FIELD': 'email',
     'USER_CREATE_PASSWORD_RETYPE': False,
     'SERIALIZERS': {
-        'user': 'api.serializers.UserListRetrieveSerializer',
-        'current_user': 'api.serializers.UserListRetrieveSerializer',
+        'user': 'api.serializers.UserBriefSerializer',
+        'current_user': 'api.serializers.UserBriefSerializer',
     },
 }
 

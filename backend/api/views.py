@@ -1,6 +1,6 @@
-from django.shortcuts import get_object_or_404
 from djoser.views import UserViewSet as DjoserUserViewSet
 
+from django.shortcuts import get_object_or_404
 from django.db.models import Exists, OuterRef, F, Sum
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
@@ -73,17 +73,20 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 )
             )
 
-        is_in_shopping_cart = self.request.query_params.get('is_in_shopping_cart')
+        is_in_shopping_cart = self.request.query_params.get(
+            'is_in_shopping_cart')
         if is_in_shopping_cart == '1' and user.is_authenticated:
             qs = qs.filter(
                 Exists(
-                    ShoppingCart.objects.filter(user=user, recipe=OuterRef('id'))
+                    ShoppingCart.objects.filter(user=user, recipe=OuterRef(
+                        'id'))
                 )
             )
         elif is_in_shopping_cart == '0' and user.is_authenticated:
             qs = qs.exclude(
                 Exists(
-                    ShoppingCart.objects.filter(user=user, recipe=OuterRef('id'))
+                    ShoppingCart.objects.filter(user=user, recipe=OuterRef(
+                        'id'))
                 )
             )
 
@@ -114,7 +117,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         permission_classes=[IsAuthenticated]
     )
     def download_shopping_cart(self, request):
-        """Скачивание списка покупок — агрегируем ингредиенты одним запросом."""
+        """Скачивание списка покупок — агрегируем ингредиенты запросом."""
         user = request.user
         if not ShoppingCart.objects.filter(user=user).exists():
             return Response(
@@ -127,7 +130,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
             .filter(user=user)
             .values(
                 name=F('recipe__recipe_ingredients__ingredient__name'),
-                unit=F('recipe__recipe_ingredients__ingredient__measurement_unit'),
+                unit=F(
+                    'recipe__recipe_ingredients__ingredient__measurement_unit'
+                ),
             )
             .annotate(total_amount=Sum('recipe__recipe_ingredients__amount'))
             .order_by('name')
@@ -143,7 +148,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         content = "".join(lines)
         response = HttpResponse(content, content_type='text/plain')
-        response['Content-Disposition'] = 'attachment; filename="shopping_cart.txt"'
+        response[
+            'Content-Disposition'] = 'attachment; filename="shopping_cart.txt"'
         return response
 
     @action(
@@ -167,7 +173,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_201_CREATED
             )
         elif request.method == 'DELETE':
-            favorite = Favorite.objects.filter(user=request.user, recipe=recipe)
+            favorite = Favorite.objects.filter(
+                user=request.user, recipe=recipe)
             if favorite.exists():
                 favorite.delete()
                 return Response(status=status.HTTP_204_NO_CONTENT)
@@ -197,7 +204,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_201_CREATED
             )
         elif request.method == 'DELETE':
-            cart_item = ShoppingCart.objects.filter(user=request.user, recipe=recipe)
+            cart_item = ShoppingCart.objects.filter(
+                user=request.user, recipe=recipe)
             if cart_item.exists():
                 cart_item.delete()
                 return Response(status=status.HTTP_204_NO_CONTENT)
@@ -253,7 +261,6 @@ class FoodgramUserViewSet(DjoserUserViewSet):
     def subscribe(self, request, id=None):
         """Подписка на пользователя."""
         author = self.get_object()
-        user = request.user
         serializer = SubscriptionSerializer(
             data={'author': author.id},
             context={'request': request}
@@ -268,7 +275,8 @@ class FoodgramUserViewSet(DjoserUserViewSet):
         """Отписка от пользователя."""
         author = self.get_object()
         user = request.user
-        deleted_count, _ = Subscription.objects.filter(user=user, author=author).delete()
+        deleted_count, _ = Subscription.objects.filter(
+            user=user, author=author).delete()
         if deleted_count:
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(
@@ -320,7 +328,7 @@ class FoodgramUserViewSet(DjoserUserViewSet):
                 {"detail": "Аватар не установлен."},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        user.avatar.delete(save=False)  # Удаляем файл
+        user.avatar.delete(save=False)
         user.avatar = None
         user.save(update_fields=['avatar'])
         return Response(status=status.HTTP_204_NO_CONTENT)

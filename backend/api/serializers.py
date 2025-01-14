@@ -1,7 +1,5 @@
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator
 from django.contrib.auth.password_validation import validate_password
-from django.core.validators import RegexValidator
 from django.contrib.auth import get_user_model
 
 from .fields import Base64ImageField
@@ -284,9 +282,12 @@ class UserWithRecipesSerializer(UserBriefSerializer):
 
 class FoodgramUserSerializer(serializers.ModelSerializer):
     """Сериализатор для пользователя."""
+
     password = serializers.CharField(write_only=True, required=True)
 
     class Meta:
+        """Метаданные для серилизатора."""
+
         model = FoodgramUser
         fields = ('id', 'email', 'username',
                   'first_name', 'last_name', 'password')
@@ -300,12 +301,15 @@ class FoodgramUserSerializer(serializers.ModelSerializer):
         """Создаёт пользователя с использованием менеджера модели."""
         return FoodgramUser.objects.create_user(**validated_data)
 
+
 class FavoriteSerializer(serializers.ModelSerializer):
     """Сериализатор для модели Favorite."""
 
     class Meta:
+        """Метаданные для серилизатора."""
+
         model = Favorite
-        fields = ['user', 'recipe']
+        fields = ('user', 'recipe')
         validators = [
             serializers.UniqueTogetherValidator(
                 queryset=Favorite.objects.all(),
@@ -315,6 +319,7 @@ class FavoriteSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
+        """Валидатор для мерилизатора."""
         user = attrs.get('user')
         recipe = attrs.get('recipe')
         if Favorite.objects.filter(user=user, recipe=recipe).exists():
@@ -323,15 +328,18 @@ class FavoriteSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         """Возвращает данные через `RecipeSimpleSerializer`."""
-        return RecipeSimpleSerializer(instance.recipe, context=self.context).data
+        return RecipeSimpleSerializer(
+            instance.recipe, context=self.context).data
 
 
 class ShoppingCartSerializer(serializers.ModelSerializer):
     """Сериализатор для модели ShoppingCart."""
 
     class Meta:
+        """Метаданные для серилизатора."""
+
         model = ShoppingCart
-        fields = ['user', 'recipe']
+        fields = ('user', 'recipe')
         validators = [
             serializers.UniqueTogetherValidator(
                 queryset=ShoppingCart.objects.all(),
@@ -341,6 +349,7 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
         ]
 
     def validate(self, attrs):
+        """Валидатор для мерилизатора."""
         user = attrs.get('user')
         recipe = attrs.get('recipe')
         if ShoppingCart.objects.filter(user=user, recipe=recipe).exists():
@@ -349,10 +358,13 @@ class ShoppingCartSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         """Возвращает данные через `RecipeSimpleSerializer`."""
-        return RecipeSimpleSerializer(instance.recipe, context=self.context).data
+        return RecipeSimpleSerializer(
+            instance.recipe, context=self.context).data
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
+    """Серидлизатор для логики подписок."""
+
     user = serializers.HiddenField(
         default=serializers.CurrentUserDefault()
     )
@@ -361,23 +373,32 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
+        """Метаданные для серилизатора."""
+
         model = Subscription
-        fields = ['user', 'author']
+        fields = ('user', 'author')
 
     def validate(self, data):
+        """
+        Проверяет, что пользователь не подписывается на себя.
+
+        и подписка ещё не существует.
+        """
         user = data.get('user')
         author = data.get('author')
 
         if user == author:
-            raise serializers.ValidationError("Нельзя подписаться на самого себя.")
+            raise serializers.ValidationError(
+                "Нельзя подписаться на самого себя.")
 
         if Subscription.objects.filter(user=user, author=author).exists():
-            raise serializers.ValidationError("Вы уже подписаны на этого пользователя.")
+            raise serializers.ValidationError(
+                "Вы уже подписаны на этого пользователя.")
 
         return data
 
     def to_representation(self, instance):
-        # Возвращаем данные автора с использованием UserWithRecipesSerializer
+        """Возвращает данные автора через `UserWithRecipesSerializer."""
         return UserWithRecipesSerializer(
             instance.author,
             context={'request': self.context.get('request')}
