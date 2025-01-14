@@ -225,17 +225,27 @@ class FoodgramUserViewSet(DjoserUserViewSet):
         """Определяет права доступа в зависимости от действия."""
         if self.action in ('list', 'retrieve'):
             return [AllowAny()]
-        elif self.action == 'me':
-            return [IsAuthenticated()]
         return super().get_permissions()
 
     def get_serializer_class(self):
         """Возвращает сериализатор в зависимости от действия."""
         if self.action in ('list', 'retrieve', 'me'):
             return UserBriefSerializer
-        elif self.action == 'create':
-            return FoodgramUserSerializer
         return super().get_serializer_class()
+
+    @action(
+        detail=False,
+        methods=['get'],
+        permission_classes=[IsAuthenticated],
+    )
+    def me(self, request, *args, **kwargs):
+        """Ограничивает методы эндпоинта me."""
+        if request.method == 'GET':
+            return super().me(request, *args, **kwargs)
+        return Response(
+            {'detail': 'Method not allowed.'},
+            status=status.HTTP_405_METHOD_NOT_ALLOWED
+        )
 
     @action(
         detail=True,
