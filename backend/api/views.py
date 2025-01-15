@@ -339,7 +339,7 @@ class FoodgramUserViewSet(DjoserUserViewSet):
 
     @avatar_update.mapping.delete
     def avatar_delete(self, request):
-        """Удаление аватара пользователя. """
+        """Удаление аватара пользователя."""
         user = request.user
         if not user.avatar:
             return Response(

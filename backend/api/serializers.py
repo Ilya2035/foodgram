@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from django.contrib.auth.password_validation import validate_password
 
 from .fields import Base64ImageField
 from recipes.models import Recipe, RecipeIngredient, Favorite, ShoppingCart
