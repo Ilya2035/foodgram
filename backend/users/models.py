@@ -1,5 +1,5 @@
 from django.conf import settings
-from django.core.validators import RegexValidator
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
@@ -22,12 +22,8 @@ class FoodgramUser(AbstractUser):
         max_length=USER_USERNAME_MAX_LENGTH,
         unique=True,
         validators=[
-            RegexValidator(
-                regex=r'^[\w.@+-]+\Z',
-                message='Никнейм может содержать только'
-                        ' буквы, цифры и символы @ . + - _'
-            )
-        ]
+            UnicodeUsernameValidator()
+        ],
     )
     first_name = models.CharField(
         verbose_name='Имя',
@@ -42,14 +38,6 @@ class FoodgramUser(AbstractUser):
         upload_to='avatars/',
         null=True,
         blank=True
-    )
-    is_staff = models.BooleanField(
-        verbose_name='Сотрудник',
-        default=False
-    )
-    date_joined = models.DateTimeField(
-        verbose_name='Дата регистрации',
-        auto_now_add=True
     )
 
     USERNAME_FIELD = 'email'

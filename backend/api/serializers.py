@@ -276,28 +276,6 @@ class UserWithRecipesSerializer(UserBriefSerializer):
         return Recipe.objects.filter(author=obj).count()
 
 
-class FoodgramUserSerializer(serializers.ModelSerializer):
-    """Сериализатор для пользователя."""
-
-    password = serializers.CharField(write_only=True, required=True)
-
-    class Meta:
-        """Метаданные для серилизатора."""
-
-        model = FoodgramUser
-        fields = ('id', 'email', 'username',
-                  'first_name', 'last_name', 'password')
-
-    def validate_password(self, value):
-        """Проверка пароля на соответствие политикам безопасности."""
-        validate_password(value)
-        return value
-
-    def create(self, validated_data):
-        """Создаёт пользователя с использованием менеджера модели."""
-        return FoodgramUser.objects.create_user(**validated_data)
-
-
 class FavoriteSerializer(serializers.ModelSerializer):
     """Сериализатор для модели Favorite."""
 
