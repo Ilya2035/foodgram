@@ -48,7 +48,7 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
 class ShortLinkRedirect(APIView):
     """Редирект с /s/<short_link>/ на /recipes/<pk>/."""
 
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get(self, request, short_link):
         recipe = get_object_or_404(Recipe, short_link=short_link)
