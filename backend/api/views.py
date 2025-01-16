@@ -34,6 +34,7 @@ from recipes.models import Recipe, ShoppingCart, Favorite
 from tags.models import Tag
 from users.models import FoodgramUser, Subscription
 
+
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     """Вьюсет для списка и детального просмотра ингредиентов."""
 
@@ -51,6 +52,7 @@ class ShortLinkRedirect(APIView):
     permission_classes = (AllowAny,)
 
     def get(self, request, short_link):
+        """Возврашаем url нужного рецепта."""
         recipe = get_object_or_404(Recipe, short_link=short_link)
         return redirect(f'/recipes/{recipe.pk}/')
 
