@@ -97,7 +97,7 @@ class Recipe(models.Model):
     class Meta:
         """Метаданные для модели Recipe."""
 
-        ordering = ['name']
+        ordering = ['-id']
         verbose_name = "Рецепт"
         verbose_name_plural = "Рецепты"
 
