@@ -1,6 +1,7 @@
 from djoser.views import UserViewSet as DjoserUserViewSet
 
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.db.models import Exists, OuterRef, F, Sum
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
@@ -97,6 +98,17 @@ class RecipeViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user)
 
     @action(
+        detail=False,
+        methods=['get'],
+        url_path=r'(?P<short_link>[A-Za-z0-9]{6})'
+    ) # по другому пока не понял как
+    def retrieve_by_short_link(self, request, short_link=None):
+        """Находит рецепт по short_link и редиректит на /api/recipes/<pk>/."""
+        recipe = get_object_or_404(Recipe, short_link=short_link)
+        detail_url = reverse('recipes-detail', args=[recipe.pk])
+        return redirect(detail_url)
+
+    @action(
         detail=True,
         methods=['get'],
         url_path='get-link',
@@ -105,11 +117,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def get_link(self, request, pk=None):
         """Возвращает короткую ссылку на рецепт."""
         recipe = get_object_or_404(Recipe, pk=pk)
-        # Предполагается, что short_link всегда присутствует
-        short_link = request.build_absolute_uri(f"/s/{recipe.short_link}/")
-        return Response(
-            {"short-link": short_link}, status=status.HTTP_200_OK
-        )
+        short_link = request.build_absolute_uri(
+            f"/recipes/{recipe.short_link}/")
+        return Response({"short-link": short_link},
+                        status=status.HTTP_200_OK)
 
     @action(
         detail=False,
