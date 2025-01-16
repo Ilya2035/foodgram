@@ -347,5 +347,6 @@ class FoodgramUserViewSet(DjoserUserViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         user.avatar.delete(
-            save=True)
+            save=False)
+        user.save(update_fields=['avatar'])
         return Response(status=status.HTTP_204_NO_CONTENT)
