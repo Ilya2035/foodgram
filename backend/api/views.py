@@ -34,7 +34,6 @@ from recipes.models import Recipe, ShoppingCart, Favorite
 from tags.models import Tag
 from users.models import FoodgramUser, Subscription
 
-
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     """Вьюсет для списка и детального просмотра ингредиентов."""
 
@@ -44,6 +43,16 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = IngredientFilter
     pagination_class = None
+
+
+def short_link_redirect(request, short_name):
+    """
+    По значению short_link (short_name) находим рецепт
+    и делаем редирект на стандартный детальный URL.
+    """
+    recipe = get_object_or_404(Recipe, short_link=short_name)
+    detail_url = reverse('recipes-detail', args=[recipe.pk])
+    return redirect(detail_url)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -96,17 +105,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Сохраняет рецепт с текущим пользователем как автором."""
         serializer.save(author=self.request.user)
-
-    @action(
-        detail=False,
-        methods=['get'],
-        url_path=r'(?P<short_link>[A-Za-z0-9]{6})'
-    ) # по другому пока не понял как
-    def retrieve_by_short_link(self, request, short_link=None):
-        """Находит рецепт по short_link и редиректит на /api/recipes/<pk>/."""
-        recipe = get_object_or_404(Recipe, short_link=short_link)
-        detail_url = reverse('recipes-detail', args=[recipe.pk])
-        return redirect(detail_url)
 
     @action(
         detail=True,

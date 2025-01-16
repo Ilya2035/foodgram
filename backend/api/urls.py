@@ -6,7 +6,8 @@ from .views import (
     IngredientViewSet,
     RecipeViewSet,
     TagViewSet,
-    FoodgramUserViewSet
+    FoodgramUserViewSet,
+short_link_redirect
 )
 
 v1_router = DefaultRouter()
@@ -27,4 +28,5 @@ urlpatterns = [
     path('', include(v1_router.urls)),
     path('auth/', include('djoser.urls.authtoken')),
     path('auth/', include('djoser.urls')),
+    path('recipes/s/<str:short_name>/', short_link_redirect, name='recipes-short'),
 ]
