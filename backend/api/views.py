@@ -1,7 +1,6 @@
 from djoser.views import UserViewSet as DjoserUserViewSet
 
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse
 from django.db.models import Exists, OuterRef, F, Sum
 from django.http import HttpResponse
 from django_filters.rest_framework import DjangoFilterBackend
@@ -13,6 +12,7 @@ from rest_framework.permissions import (
 )
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .permissions import IsAuthorOrReadOnly
 from .pagination import PaginationForUser
@@ -45,14 +45,14 @@ class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
 
 
-def short_link_redirect(request, short_name):
-    """
-    По значению short_link (short_name) находим рецепт
-    и делаем редирект на стандартный детальный URL.
-    """
-    recipe = get_object_or_404(Recipe, short_link=short_name)
-    detail_url = reverse('recipes-detail', args=[recipe.pk])
-    return redirect(detail_url)
+class ShortLinkRedirect(APIView):
+    """Редирект с /s/<short_link>/ на /recipes/<pk>/."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, short_link):
+        recipe = get_object_or_404(Recipe, short_link=short_link)
+        return redirect(f'/recipes/{recipe.pk}/')
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -116,7 +116,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Возвращает короткую ссылку на рецепт."""
         recipe = get_object_or_404(Recipe, pk=pk)
         short_link = request.build_absolute_uri(
-            f"/recipes/{recipe.short_link}/")
+            f"/s/{recipe.short_link}/")
         return Response({"short-link": short_link},
                         status=status.HTTP_200_OK)
 
